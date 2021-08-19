@@ -69,12 +69,18 @@ challenges:
 rewards:
   give_for_all_reward_to_top: true
   for_all:
-    - "give %player% diamond 1"
+    message: "1 Diamant"
+    commands:
+      - "give %player% diamond 1"
   top:
     '1':
-      - "give %player% dirt 1"
+      message: "1 terre"
+      commands:
+        - "give %player% dirt 1"
     '2':
-      - "second"
+      message: "1 terre"
+      commands:
+        - "give %player% dirt 1"
 
 messages:
   global:
@@ -96,5 +102,5 @@ messages:
         - "test"
         - "{0}"
   rewards:
-    for_all: "&7[&c&lES&7] Vous avez participé au défi, vous gagnez quelques récompenses !"
-    top: "&7[&c&lES&7] Vous avez participé au défi, et vous êtes &aTOP {0} &7! Vous gagnez des récompenses !"
+    for_all: "&7[&c&lES&7] Vous avez participé au défi, vous gagnez {0} !"
+    top: "&7[&c&lES&7] Vous avez participé au défi, et vous êtes &aTOP {0} &7! Vous gagnez : {1} !"

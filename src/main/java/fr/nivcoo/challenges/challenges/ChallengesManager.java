@@ -244,10 +244,9 @@ public class ChallengesManager {
 		boolean sendTop = false;
 		List<String> commandsForAll = config.getStringList("rewards.for_all");
 		boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
-		Map<Player, Integer> filteredPlayersProgress = playersProgress.entrySet() 
-		          .stream() 
-		          .filter(map -> map.getValue() > 0) 
-		          .collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
+		Map<Player, Integer> filteredPlayersProgress = playersProgress.entrySet().stream()
+				.filter(map -> map.getValue() > 0)
+				.collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
 		for (Player player : filteredPlayersProgress.keySet()) {
 			place++;
 			int score = getScoreOfPlayer(player);
@@ -256,7 +255,8 @@ public class ChallengesManager {
 				if (!outOfTop && giveForAllRewardToTop)
 					sendConsoleCommand(c, player);
 				if (outOfTop)
-					player.sendMessage(config.getString("messages.rewards.for_all"));
+					player.sendMessage(
+							config.getString("messages.rewards.for_all", config.getString("rewards.for_all.message")));
 			}
 			if (outOfTop)
 				continue;
@@ -268,10 +268,12 @@ public class ChallengesManager {
 
 			if (place + 1 <= keys.size())
 				globalTemplateMessage += " \n";
-			List<String> commands = config.getStringList("rewards.top." + place);
-			for (String c : commands) {
+			String rewardsTopPath = "rewards.top." + place;
+			List<String> commandsTop = config.getStringList(rewardsTopPath + ".commands");
+			String messageTop = config.getString(rewardsTopPath + ".message");
+			for (String c : commandsTop) {
 				sendConsoleCommand(c, player);
-				player.sendMessage(config.getString("messages.rewards.top", String.valueOf(place)));
+				player.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
 			}
 
 		}
