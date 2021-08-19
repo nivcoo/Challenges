@@ -11,25 +11,30 @@ public class Challenge {
 	private Types allowedType;
 
 	private List<String> requirementMaterials;
+	private String message;
 
 	public Challenge(Types allowedType) {
 		this.allowedType = allowedType;
-	}
-
-	public void setRequirementMaterials(List<String> requirementMaterials) {
-		this.requirementMaterials = requirementMaterials;
-	}
-
-	public List<String> getRequirementMaterials() {
-		return requirementMaterials;
 	}
 
 	public Types getAllowedType() {
 		return allowedType;
 	}
 
+	public List<String> getRequirementMaterials() {
+		return requirementMaterials;
+	}
+
+	public String getMessage() {
+		return message;
+	}
+
+	public void setRequirementMaterials(List<String> requirementMaterials) {
+		this.requirementMaterials = requirementMaterials;
+	}
+
 	public boolean isInMaterialsRequirement(Material material, int data) {
-		
+
 		for (String materialData : requirementMaterials) {
 			Material m = null;
 			Integer d = null;
@@ -44,6 +49,11 @@ public class Challenge {
 				return true;
 		}
 		return false;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+
 	}
 
 }

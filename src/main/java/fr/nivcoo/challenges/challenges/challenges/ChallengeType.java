@@ -16,10 +16,6 @@ public class ChallengeType {
 
 	protected boolean checkRequirements() {
 		Challenge selectedChallenge = getSeletedChallenge();
-		// if (selectedChallenge.getAllowedType().equals(Types.BLOCK_BREAK) &&
-		// type.equals(Types.BLOCK_PLACE)
-		// && type.equals(Types.BLOCK_BREAK) &&
-		// selectedChallenge.getAllowedType().equals(Types.BLOCK_PLACE))
 		if (selectedChallenge == null || (!selectedChallenge.getAllowedType().equals(type)
 				&& (selectedChallenge.getAllowedType().equals(Types.BLOCK_BREAK) && !type.equals(Types.BLOCK_PLACE)
 						&& !type.equals(Types.BLOCK_BREAK)

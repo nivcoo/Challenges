@@ -2,10 +2,13 @@ package fr.nivcoo.challenges.challenges;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
@@ -28,11 +31,11 @@ public class ChallengesManager {
 	private Challenge selectedChallenge;
 
 	private HashMap<Player, Integer> playersProgress;
+	private Long startedTimestamp;
 
 	public ChallengesManager() {
 		registerEvents();
 		registerChallenges();
-		selectedChallenge = challengesList.get(0);
 		playersProgress = new HashMap<>();
 		startChallengeInterval();
 
@@ -61,24 +64,37 @@ public class ChallengesManager {
 
 			if (type.equals(Types.BLOCK_BREAK) || type.equals(Types.BLOCK_PLACE)) {
 				challenge.setRequirementMaterials(config.getStringList(challengePath + ".requirement"));
-
 			}
-
+			challenge.setMessage(config.getString(challengePath + ".message"));
 		}
 
 	}
 
 	public void startChallengeInterval() {
 		challengeIntervalRun = true;
-		int interval = config.getInt("interval") * 10;
-		int timeout = config.getInt("timeout") * 10;
+		int coef = 60; // default 60 for minute;
+		int interval = config.getInt("interval");
+		int timeout = config.getInt("timeout");
 		List<Integer> whitelistedHours = config.getIntegerList("whitelisted_hours");
-
+		String countdownMessage = config.getString("messages.action_bar.countdown");
+		String second = config.getString("messages.global.second");
+		String seconds = config.getString("messages.global.seconds");
 		Thread t = new Thread(() -> {
 			while (challengeIntervalRun && !Thread.interrupted()) {
-
 				try {
-					Thread.sleep(interval * 1000);
+					int countdownNumber = 5;
+					Thread.sleep(interval * coef * 1000 - countdownNumber * 1000);
+
+					for (int i = 0; i < countdownNumber; i++) {
+						if (!challengeIntervalRun)
+							return;
+						int timeleft = countdownNumber - i;
+						String secondSelect = (timeleft > 1) ? seconds : second;
+						sendActionBarMessage(
+								countdownMessage.replace("{0}", String.valueOf(timeleft)).replace("{1}", secondSelect));
+						Thread.sleep(1000);
+					}
+
 				} catch (InterruptedException ex) {
 				}
 				if (!challengeIntervalRun)
@@ -88,8 +104,15 @@ public class ChallengesManager {
 				if (!whitelistedHours.contains(hour))
 					return;
 				clearProgress();
+
+				Random rand = new Random();
+				selectedChallenge = challengesList.get(rand.nextInt(challengesList.size()));
+
+				sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(timeout),
+						selectedChallenge.getMessage()));
+				Date date = new Date();
+				startedTimestamp = date.getTime();
 				startActionBarInterval();
-				Bukkit.broadcastMessage("Start");
 				delayedCancelTaskID = Bukkit.getScheduler().scheduleSyncDelayedTask(challenges, new Runnable() {
 					@Override
 					public void run() {
@@ -97,7 +120,7 @@ public class ChallengesManager {
 						clearProgress();
 
 					}
-				}, 20 * timeout);
+				}, 20 * timeout * coef);
 
 			}
 		}, "Challenges interval Thread");
@@ -117,22 +140,67 @@ public class ChallengesManager {
 
 		Thread t = new Thread(() -> {
 			while (actionBarIntervalRun && !Thread.interrupted()) {
-
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException ex) {
-				}
 				if (!actionBarIntervalRun)
 					return;
 				for (Player p : Bukkit.getOnlinePlayers()) {
 					if (blacklistedWorld.contains(p.getWorld().getName()))
 						continue;
-					sendActionBarMessage(p, "Test : " + getScoreOfPlayer(p));
+					sendActionBarMessage(p);
+				}
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException ex) {
 				}
 			}
 
 		}, "Challenges actionbar interval Thread");
 		t.start();
+
+	}
+
+	public void sendActionBarMessage(String message) {
+		for (Player p : Bukkit.getOnlinePlayers()) {
+			sendActionBarMessage(p, message);
+		}
+
+	}
+
+	public void sendActionBarMessage(Player p) {
+		if (selectedChallenge == null)
+			return;
+
+		Date date = new Date();
+		long now = date.getTime();
+		int timeout = config.getInt("timeout");
+		long s = (timeout * 60) - ((now - startedTimestamp) / 1000);
+		long m = Math.round(s / 60);
+
+		long number = 0;
+
+		String type = "";
+
+		String second = config.getString("messages.global.second");
+		String seconds = config.getString("messages.global.seconds");
+		String minute = config.getString("messages.global.minute");
+		String minutes = config.getString("messages.global.minutes");
+		if (m >= 1) {
+			number = m;
+			type = minute;
+			if (m > 1)
+				type = minutes;
+
+		} else {
+			number = s;
+			type = second;
+			if (s > 1)
+				type = seconds;
+
+		}
+
+		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
+				String.valueOf(getScoreOfPlayer(p)), String.valueOf(number), type);
+
+		sendActionBarMessage(p, message);
 
 	}
 
@@ -147,6 +215,8 @@ public class ChallengesManager {
 	public void clearProgress() {
 		stopActionBarInterval();
 		playersProgress = new HashMap<>();
+		selectedChallenge = null;
+		startedTimestamp = null;
 
 	}
 
@@ -160,13 +230,16 @@ public class ChallengesManager {
 		List<String> keys = config.getKeys("rewards");
 		int place = 0;
 		String globalTemplateMessage = "";
+		boolean sendTop = false;
 		for (Player player : playersProgress.keySet()) {
 			place++;
+			int score = getScoreOfPlayer(player);
 
-			if (place > keys.size())
+			if (place > keys.size() || score <= 0)
 				continue;
+			sendTop = true;
 			String templateMessage = config.getString("messages.chat.top.template", String.valueOf(place),
-					player.getName(), String.valueOf(getScoreOfPlayer(player)));
+					player.getName(), String.valueOf(score));
 
 			globalTemplateMessage += templateMessage;
 
@@ -187,13 +260,10 @@ public class ChallengesManager {
 			i++;
 		}
 
-		for (Player p : Bukkit.getServer().getOnlinePlayers()) {
-			if (playersProgress.size() == 0) {
-				p.sendMessage(noPlayerMessage);
-			} else {
-				p.sendMessage(globalMessage);
-			}
-
+		if (sendTop) {
+			sendGlobalMessage(globalMessage);
+		} else {
+			sendGlobalMessage(noPlayerMessage);
 		}
 
 	}
@@ -210,31 +280,42 @@ public class ChallengesManager {
 
 		if (!selectedChallenge.getAllowedType().equals(type))
 			return;
-
-		Integer score = playersProgress.get(p);
-		if (score == null) {
-			playersProgress.put(p, 1);
-
-		} else {
-			int newScore = score + 1;
-			playersProgress.put(p, newScore);
-
-		}
-
+		Sound sound = Sound.valueOf(config.getString("sound.add"));
+		setScoreToPlayer(p, 1);
+		p.playSound(p.getLocation(), sound, .4f, 1.7f);
 	}
 
 	public void removeScoreToPlayer(Player p) {
+		Sound sound = Sound.valueOf(config.getString("sound.remove"));
+		setScoreToPlayer(p, -1);
+		p.playSound(p.getLocation(), sound, .4f, 1.7f);
+	}
+
+	public void setScoreToPlayer(Player p, int value) {
 
 		Integer score = playersProgress.get(p);
-		if (score != null) {
-			int newScore = score - 1;
+		if (score == null) {
+			playersProgress.put(p, value);
+
+		} else {
+			int newScore = score + value;
 			playersProgress.put(p, newScore);
 		}
 
+		sendActionBarMessage(p);
 	}
 
 	public Challenge getSelectedChallenge() {
 		return selectedChallenge;
+	}
+
+	public void sendGlobalMessage(String message) {
+		Sound sound = Sound.valueOf(config.getString("sound.messages"));
+		for (Player p : Bukkit.getServer().getOnlinePlayers()) {
+			p.sendMessage(message);
+			p.playSound(p.getLocation(), sound, .4f, 1.7f);
+
+		}
 	}
 
 }

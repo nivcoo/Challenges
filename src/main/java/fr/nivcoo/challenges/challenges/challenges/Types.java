@@ -20,7 +20,7 @@ public enum Types {
 		} catch (IllegalArgumentException e) {
 			return null;
 		}
-		
+
 	}
 
 }

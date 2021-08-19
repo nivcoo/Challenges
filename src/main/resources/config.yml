@@ -1,7 +1,12 @@
 # in minutes
-interval: 30
+interval: 2
 # in minutes
-timeout: 5
+timeout: 1
+
+sound:
+  messages: ENTITY_EXPERIENCE_ORB_PICKUP
+  add: ENTITY_EXPERIENCE_ORB_PICKUP
+  remove: ENTITY_EXPERIENCE_ORB_PICKUP
 
 # if the hour isn't into the list the challenges isn't start
 whitelisted_hours:
@@ -22,15 +27,21 @@ whitelisted_hours:
   - 22
   - 23
 
+blacklisted_world:
+  - invest
+
 challenges:
   '0':
-    challenge: "block-break"
-    type: "STONE"
-    data: 0
+    message: "Casser des Roches"
+    challenge: "BLOCK_BREAK"
+    requirement:
+      - "STONE:0"
 
 rewards:
-  '1': "premier"
-  '2': "second etc etc"
+  '1':
+    - "premier"
+  '2':
+    - "second"
 
 messages:
   global:
@@ -40,5 +51,14 @@ messages:
     minutes: "minutes"
     hour: "heure"
     hours: "heures"
-  actionbar:
-    countdown: "Défit lancé dans {0} {1} !"
+  action_bar:
+    message: "{0} : {1} - {2} {3} restantes !"
+    countdown: "Défi lancé dans {0} {1} !"
+  chat:
+    start_message: "&7[&c&lES&7] Vous avez {0} minutes pour : &a{1} !&7 Soyez le meilleur !"
+    no_player: "&7[&c&lES&7] Aucun joueur n'a fait le défi !"
+    top:
+      template: "- {0}, {1} score : {2}"
+      message:
+        - "test"
+        - "{0}"
