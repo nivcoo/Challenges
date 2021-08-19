@@ -1,0 +1,44 @@
+# in minutes
+interval: 30
+# in minutes
+timeout: 5
+
+# if the hour isn't into the list the challenges isn't start
+whitelisted_hours:
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  - 20
+  - 21
+  - 22
+  - 23
+
+challenges:
+  '0':
+    challenge: "block-break"
+    type: "STONE"
+    data: 0
+
+rewards:
+  '1': "premier"
+  '2': "second etc etc"
+
+messages:
+  global:
+    second: "seconde"
+    seconds: "secondes"
+    minute: "minute"
+    minutes: "minutes"
+    hour: "heure"
+    hours: "heures"
+  actionbar:
+    countdown: "Défit lancé dans {0} {1} !"
