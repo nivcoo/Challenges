@@ -54,32 +54,31 @@ public class EnchantAllType extends ChallengeType implements Listener {
 				AnvilInventory anvil = (AnvilInventory) inv;
 				InventoryView view = e.getView();
 				int rawSlot = e.getRawSlot();
-				if (rawSlot == view.convertSlot(rawSlot)) {
-					if (rawSlot == 2) {
-						ItemStack[] items = anvil.getContents();
-						ItemStack item1 = items[0];
-						ItemStack item2 = items[1];
-						if (item1 != null && item2 != null) {
-							Material id1 = item1.getType();
-							Material id2 = item2.getType();
-							if (!id1.equals(Material.AIR) && !id2.equals(Material.AIR)) {
-								ItemStack item3 = e.getCurrentItem();
-								if (item3 != null) {
-									ItemMeta meta = item3.getItemMeta();
-									if (meta instanceof Repairable) {
-										Repairable repairable = (Repairable) meta;
-										int repairCost = repairable.getRepairCost();
-										if (p.getLevel() >= repairCost) {
-											boolean allow = selectedChallenge.isInMaterialsRequirement(item3.getType(),
-													(int) item3.getData().getData());
-											if (allow)
-												addScoreToPlayer(p);
-										}
-									}
+				if (rawSlot == view.convertSlot(rawSlot) && rawSlot == 2) {
+
+					ItemStack[] items = anvil.getContents();
+					ItemStack item1 = items[0];
+					ItemStack item2 = items[1];
+					if (item1 != null && item2 != null && !item1.getType().equals(Material.AIR)
+							&& !item2.getType().equals(Material.AIR)) {
+
+						ItemStack item3 = e.getCurrentItem();
+						if (item3 != null) {
+							ItemMeta meta = item3.getItemMeta();
+							if (meta instanceof Repairable) {
+								Repairable repairable = (Repairable) meta;
+								int repairCost = repairable.getRepairCost();
+								if (p.getLevel() >= repairCost) {
+									boolean allow = selectedChallenge.isInMaterialsRequirement(item3.getType(),
+											(int) item3.getData().getData());
+									if (allow)
+										addScoreToPlayer(p);
 								}
 							}
 						}
+
 					}
+
 				}
 			}
 		}
