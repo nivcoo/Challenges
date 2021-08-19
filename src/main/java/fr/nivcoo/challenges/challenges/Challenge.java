@@ -51,6 +51,8 @@ public class Challenge {
 	}
 
 	public boolean isInMaterialsRequirement(Material material, int data) {
+		if(requirementMaterials == null)
+			return true;
 		for (String materialData : requirementMaterials) {
 			Material m = null;
 			Integer d = null;
@@ -68,8 +70,7 @@ public class Challenge {
 	}
 
 	public boolean isEntity(EntityType entity) {
-		return entity.equals(entityType);
-
+		return entityType == null || entity.equals(entityType);
 	}
 
 }
