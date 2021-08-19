@@ -5,7 +5,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
@@ -236,15 +238,27 @@ public class ChallengesManager {
 
 	public void sendTop() {
 		String noPlayerMessage = config.getString("messages.chat.no_player");
-		List<String> keys = config.getKeys("rewards");
+		List<String> keys = config.getKeys("rewards.top");
 		int place = 0;
 		String globalTemplateMessage = "";
 		boolean sendTop = false;
-		for (Player player : playersProgress.keySet()) {
+		List<String> commandsForAll = config.getStringList("rewards.for_all");
+		boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
+		Map<Player, Integer> filteredPlayersProgress = playersProgress.entrySet() 
+		          .stream() 
+		          .filter(map -> map.getValue() > 0) 
+		          .collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
+		for (Player player : filteredPlayersProgress.keySet()) {
 			place++;
 			int score = getScoreOfPlayer(player);
-
-			if (place > keys.size() || score <= 0)
+			boolean outOfTop = place > keys.size();
+			for (String c : commandsForAll) {
+				if (!outOfTop && giveForAllRewardToTop)
+					sendConsoleCommand(c, player);
+				if (outOfTop)
+					player.sendMessage(config.getString("messages.rewards.for_all"));
+			}
+			if (outOfTop)
 				continue;
 			sendTop = true;
 			String templateMessage = config.getString("messages.chat.top.template", String.valueOf(place),
@@ -254,9 +268,11 @@ public class ChallengesManager {
 
 			if (place + 1 <= keys.size())
 				globalTemplateMessage += " \n";
-			List<String> commands = config.getStringList("rewards." + place);
-			for (String c : commands)
-				Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(), c);
+			List<String> commands = config.getStringList("rewards.top." + place);
+			for (String c : commands) {
+				sendConsoleCommand(c, player);
+				player.sendMessage(config.getString("messages.rewards.top", String.valueOf(place)));
+			}
 
 		}
 		List<String> globalMessagesList = config.getStringList("messages.chat.top.message");
@@ -274,6 +290,12 @@ public class ChallengesManager {
 		} else {
 			sendGlobalMessage(noPlayerMessage);
 		}
+
+	}
+
+	public void sendConsoleCommand(String command, Player p) {
+		Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+				command.replaceAll("%player%", p.getName()));
 
 	}
 

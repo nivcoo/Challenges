@@ -1,7 +1,7 @@
 # in minutes
 interval: 1
 # in minutes
-timeout: 10
+timeout: 1
 
 sound:
   messages: ENTITY_EXPERIENCE_ORB_PICKUP
@@ -60,15 +60,21 @@ challenges_example:
     challenge: "CONSUME"
 
 challenges:
-  '5':
-    message: "Manger des Légumes"
-    challenge: "CONSUME"
+  '0':
+    message: "Casser des Roches"
+    challenge: "BLOCK_BREAK"
+    requirement:
+      - "STONE:0"
 
 rewards:
-  '1':
-    - "premier"
-  '2':
-    - "second"
+  give_for_all_reward_to_top: true
+  for_all:
+    - "give %player% diamond 1"
+  top:
+    '1':
+      - "give %player% dirt 1"
+    '2':
+      - "second"
 
 messages:
   global:
@@ -89,3 +95,6 @@ messages:
       message:
         - "test"
         - "{0}"
+  rewards:
+    for_all: "&7[&c&lES&7] Vous avez participé au défi, vous gagnez quelques récompenses !"
+    top: "&7[&c&lES&7] Vous avez participé au défi, et vous êtes &aTOP {0} &7! Vous gagnez des récompenses !"
