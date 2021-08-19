@@ -9,7 +9,6 @@ import java.util.Random;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
@@ -17,7 +16,9 @@ import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.challenges.Types;
 import fr.nivcoo.challenges.challenges.challenges.types.BlockBreakType;
 import fr.nivcoo.challenges.challenges.challenges.types.BlockPlaceType;
+import fr.nivcoo.challenges.challenges.challenges.types.EnchantAllType;
 import fr.nivcoo.challenges.challenges.challenges.types.EntityDeathType;
+import fr.nivcoo.challenges.challenges.challenges.types.FishingType;
 import fr.nivcoo.challenges.utils.Config;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -47,6 +48,8 @@ public class ChallengesManager {
 		registerEvent(new BlockBreakType());
 		registerEvent(new BlockPlaceType());
 		registerEvent(new EntityDeathType());
+		registerEvent(new FishingType());
+		registerEvent(new EnchantAllType());
 	}
 
 	public void registerEvent(Listener type) {
@@ -65,11 +68,7 @@ public class ChallengesManager {
 			Challenge challenge = new Challenge(type);
 			challengesList.add(challenge);
 
-			if (type.equals(Types.BLOCK_BREAK) || type.equals(Types.BLOCK_PLACE)) {
-				challenge.setRequirementMaterials(config.getStringList(challengePath + ".requirement"));
-			} else if (type.equals(Types.ENTITY_DEATH)) {
-				challenge.setEntityType(EntityType.valueOf(config.getString(challengePath + ".requirement")));
-			}
+			challenge.setRequirements(config.getStringList(challengePath + ".requirement"));
 
 			challenge.setMessage(config.getString(challengePath + ".message"));
 		}
@@ -90,7 +89,12 @@ public class ChallengesManager {
 				try {
 					int countdownNumber = 5;
 					Thread.sleep(interval * coef * 1000 - countdownNumber * 1000);
-
+					if(startedTimestamp != null)
+						continue;
+					Calendar rightNow = Calendar.getInstance();
+					int hour = rightNow.get(Calendar.HOUR_OF_DAY);
+					if (!whitelistedHours.contains(hour))
+						return;
 					for (int i = 0; i < countdownNumber; i++) {
 						if (!challengeIntervalRun)
 							return;
@@ -105,10 +109,7 @@ public class ChallengesManager {
 				}
 				if (!challengeIntervalRun)
 					return;
-				Calendar rightNow = Calendar.getInstance();
-				int hour = rightNow.get(Calendar.HOUR_OF_DAY);
-				if (!whitelistedHours.contains(hour))
-					return;
+
 				clearProgress();
 
 				Random rand = new Random();

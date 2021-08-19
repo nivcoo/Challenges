@@ -3,7 +3,6 @@ package fr.nivcoo.challenges.challenges;
 import java.util.List;
 
 import org.bukkit.Material;
-import org.bukkit.entity.EntityType;
 
 import fr.nivcoo.challenges.challenges.challenges.Types;
 
@@ -11,8 +10,7 @@ public class Challenge {
 
 	private Types allowedType;
 
-	private List<String> requirementMaterials;
-	private EntityType entityType;
+	private List<String> requirements;
 	private String message;
 
 	public Challenge(Types allowedType) {
@@ -23,26 +21,16 @@ public class Challenge {
 		return allowedType;
 	}
 
-	public List<String> getRequirementMaterials() {
-		return requirementMaterials;
-	}
-
-	public EntityType getEntityType() {
-		return entityType;
-
+	public List<String> getRequirements() {
+		return requirements;
 	}
 
 	public String getMessage() {
 		return message;
 	}
 
-	public void setRequirementMaterials(List<String> requirementMaterials) {
-		this.requirementMaterials = requirementMaterials;
-	}
-
-	public void setEntityType(EntityType entityType) {
-		this.entityType = entityType;
-
+	public void setRequirements(List<String> requirements) {
+		this.requirements = requirements;
 	}
 
 	public void setMessage(String message) {
@@ -51,9 +39,7 @@ public class Challenge {
 	}
 
 	public boolean isInMaterialsRequirement(Material material, int data) {
-		if(requirementMaterials == null)
-			return true;
-		for (String materialData : requirementMaterials) {
+		for (String materialData : requirements) {
 			Material m = null;
 			Integer d = null;
 			if (materialData.contains(":")) {
@@ -66,11 +52,11 @@ public class Challenge {
 			if ((d == null || data == d) && material.equals(m))
 				return true;
 		}
-		return false;
+		return requirements.size() == 0;
 	}
 
-	public boolean isEntity(EntityType entity) {
-		return entityType == null || entity.equals(entityType);
+	public boolean isInRequirements(String value) {
+		return requirements.size() == 0 || requirements.contains(value);
 	}
 
 }

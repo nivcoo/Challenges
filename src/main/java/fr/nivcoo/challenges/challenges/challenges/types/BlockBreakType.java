@@ -22,12 +22,11 @@ public class BlockBreakType extends ChallengeType implements Listener {
 		if (!checkRequirements())
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
-		System.out.println(selectedChallenge.getAllowedType());
 		Block b = e.getBlock();
 		Player p = e.getPlayer();
 
 		boolean allow = selectedChallenge.isInMaterialsRequirement(b.getType(), (int) b.getData());
-		if(allow)
+		if (allow)
 			addScoreToPlayer(p);
 
 	}
