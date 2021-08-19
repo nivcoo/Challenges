@@ -16,6 +16,7 @@ import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.challenges.Types;
 import fr.nivcoo.challenges.challenges.challenges.types.BlockBreakType;
 import fr.nivcoo.challenges.challenges.challenges.types.BlockPlaceType;
+import fr.nivcoo.challenges.challenges.challenges.types.ConsumeType;
 import fr.nivcoo.challenges.challenges.challenges.types.EnchantAllType;
 import fr.nivcoo.challenges.challenges.challenges.types.EntityDeathType;
 import fr.nivcoo.challenges.challenges.challenges.types.FishingType;
@@ -50,6 +51,7 @@ public class ChallengesManager {
 		registerEvent(new EntityDeathType());
 		registerEvent(new FishingType());
 		registerEvent(new EnchantAllType());
+		registerEvent(new ConsumeType());
 	}
 
 	public void registerEvent(Listener type) {
