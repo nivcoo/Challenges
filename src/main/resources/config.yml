@@ -1,7 +1,7 @@
 # in minutes
-interval: 2
+interval: 1
 # in minutes
-timeout: 1
+timeout: 10
 
 sound:
   messages: ENTITY_EXPERIENCE_ORB_PICKUP
@@ -26,11 +26,14 @@ whitelisted_hours:
   - 21
   - 22
   - 23
+  - 24
+  - 00
+  - 01
 
 blacklisted_world:
   - invest
 
-challenges:
+challenges_example:
   '0':
     message: "Casser des Roches"
     challenge: "BLOCK_BREAK"
@@ -39,7 +42,27 @@ challenges:
   '1':
     message: "Tuer des zombies"
     challenge: "ENTITY_DEATH"
-    requirement: "ZOMBIE"
+    requirement:
+      - "ZOMBIE"
+  '2':
+    message: "Pêcher des Objets/Poissons"
+    challenge: "FISHING"
+  '3':
+    message: "Enchanter des objets"
+    challenge: "ENCHANT_ALL"
+  '4':
+    message: "Enchanter des Pelles en fer"
+    challenge: "ENCHANT_ALL"
+    requirement:
+      - "IRON_SHOVEL"
+  '5':
+    message: "Manger des Légumes"
+    challenge: "CONSUME"
+
+challenges:
+  '5':
+    message: "Manger des Légumes"
+    challenge: "CONSUME"
 
 rewards:
   '1':
