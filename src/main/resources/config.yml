@@ -6,7 +6,7 @@ timeout: 1
 sound:
   messages: ENTITY_EXPERIENCE_ORB_PICKUP
   add: ENTITY_EXPERIENCE_ORB_PICKUP
-  remove: ENTITY_EXPERIENCE_ORB_PICKUP
+  remove: BLOCK_ANVIL_BREAK
 
 # if the hour isn't into the list the challenges isn't start
 whitelisted_hours:
@@ -36,6 +36,10 @@ challenges:
     challenge: "BLOCK_BREAK"
     requirement:
       - "STONE:0"
+  '1':
+    message: "Tuer des zombies"
+    challenge: "ENTITY_DEATH"
+    requirement: "ZOMBIE"
 
 rewards:
   '1':

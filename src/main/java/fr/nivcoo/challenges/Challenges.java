@@ -23,10 +23,6 @@ public class Challenges extends JavaPlugin {
 		}
 
 		config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
-		// messages = new Config(new File("plugins" + File.separator + "ASphere" +
-		// File.separator + "messages.yml"));
-		// getCommand("asphere").setExecutor(new Commands(this));
-		// Bukkit.getPluginManager().registerEvents(new BlockBreak(), this);
 
 		challengesManager = new ChallengesManager();
 
