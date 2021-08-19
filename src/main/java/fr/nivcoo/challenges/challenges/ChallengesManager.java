@@ -64,7 +64,7 @@ public class ChallengesManager {
 
 			String challengePath = "challenges." + key;
 			String challengeType = config.getString(challengePath + ".challenge");
-			Types type = Types.valueOfIgnoreCase(challengeType);
+			Types type = Types.valueOf(challengeType.toUpperCase());
 			Challenge challenge = new Challenge(type);
 			challengesList.add(challenge);
 
@@ -89,7 +89,7 @@ public class ChallengesManager {
 				try {
 					int countdownNumber = 5;
 					Thread.sleep(interval * coef * 1000 - countdownNumber * 1000);
-					if(startedTimestamp != null)
+					if (startedTimestamp != null)
 						continue;
 					Calendar rightNow = Calendar.getInstance();
 					int hour = rightNow.get(Calendar.HOUR_OF_DAY);
