@@ -13,8 +13,8 @@ public class Challenge {
 	private List<String> requirements;
 	private String message;
 
-	public Challenge(Types allowedType) {
-		this.challengeType = allowedType;
+	public Challenge(Types challengeType) {
+		this.challengeType = challengeType;
 	}
 
 	public Types getChallengeType() {
