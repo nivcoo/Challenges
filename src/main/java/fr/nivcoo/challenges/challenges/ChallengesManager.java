@@ -279,13 +279,13 @@ public class ChallengesManager {
 		if (selectedChallenge == null)
 			return;
 
-		if (selectedChallenge.getAllowedType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
-				|| type.equals(Types.BLOCK_BREAK) && selectedChallenge.getAllowedType().equals(Types.BLOCK_PLACE)) {
+		if (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
+				|| type.equals(Types.BLOCK_BREAK) && selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE)) {
 			removeScoreToPlayer(p);
 			return;
 		}
 
-		if (!selectedChallenge.getAllowedType().equals(type))
+		if (!selectedChallenge.getChallengeType().equals(type))
 			return;
 		Sound sound = Sound.valueOf(config.getString("sound.add"));
 		setScoreToPlayer(p, 1);

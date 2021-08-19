@@ -17,10 +17,10 @@ public class ChallengeType {
 	protected boolean checkRequirements() {
 		Challenge selectedChallenge = getSeletedChallenge();
 
-		boolean correctType = selectedChallenge != null && (selectedChallenge.getAllowedType().equals(type)
-				|| (selectedChallenge.getAllowedType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
+		boolean correctType = selectedChallenge != null && (selectedChallenge.getChallengeType().equals(type)
+				|| (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
 						|| type.equals(Types.BLOCK_BREAK)
-								&& selectedChallenge.getAllowedType().equals(Types.BLOCK_PLACE)));
+								&& selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE)));
 		return correctType;
 	}
 

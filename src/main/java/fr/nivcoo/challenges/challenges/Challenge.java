@@ -8,17 +8,17 @@ import fr.nivcoo.challenges.challenges.challenges.Types;
 
 public class Challenge {
 
-	private Types allowedType;
+	private Types challengeType;
 
 	private List<String> requirements;
 	private String message;
 
 	public Challenge(Types allowedType) {
-		this.allowedType = allowedType;
+		this.challengeType = allowedType;
 	}
 
-	public Types getAllowedType() {
-		return allowedType;
+	public Types getChallengeType() {
+		return challengeType;
 	}
 
 	public List<String> getRequirements() {
