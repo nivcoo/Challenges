@@ -2,7 +2,7 @@ package fr.nivcoo.challenges.challenges.challenges;
 
 public enum Types {
 
-	BLOCK_BREAK("block-break"), BLOCK_PLACE("block-place");
+	BLOCK_BREAK("block_break"), BLOCK_PLACE("block_place"), ENTITY_DEATH("entity_death");
 
 	private String challengeType;
 

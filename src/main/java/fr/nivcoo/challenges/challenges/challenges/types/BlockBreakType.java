@@ -22,6 +22,7 @@ public class BlockBreakType extends ChallengeType implements Listener {
 		if (!checkRequirements())
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
+		System.out.println(selectedChallenge.getAllowedType());
 		Block b = e.getBlock();
 		Player p = e.getPlayer();
 

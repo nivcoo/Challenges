@@ -9,6 +9,7 @@ import java.util.Random;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
@@ -16,6 +17,7 @@ import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.challenges.Types;
 import fr.nivcoo.challenges.challenges.challenges.types.BlockBreakType;
 import fr.nivcoo.challenges.challenges.challenges.types.BlockPlaceType;
+import fr.nivcoo.challenges.challenges.challenges.types.EntityDeathType;
 import fr.nivcoo.challenges.utils.Config;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
@@ -44,6 +46,7 @@ public class ChallengesManager {
 	public void registerEvents() {
 		registerEvent(new BlockBreakType());
 		registerEvent(new BlockPlaceType());
+		registerEvent(new EntityDeathType());
 	}
 
 	public void registerEvent(Listener type) {
@@ -64,7 +67,10 @@ public class ChallengesManager {
 
 			if (type.equals(Types.BLOCK_BREAK) || type.equals(Types.BLOCK_PLACE)) {
 				challenge.setRequirementMaterials(config.getStringList(challengePath + ".requirement"));
+			} else if (type.equals(Types.ENTITY_DEATH)) {
+				challenge.setEntityType(EntityType.valueOf(config.getString(challengePath + ".requirement")));
 			}
+
 			challenge.setMessage(config.getString(challengePath + ".message"));
 		}
 
@@ -72,7 +78,7 @@ public class ChallengesManager {
 
 	public void startChallengeInterval() {
 		challengeIntervalRun = true;
-		int coef = 60; // default 60 for minute;
+		int coef = 10; // default 60 for minute;
 		int interval = config.getInt("interval");
 		int timeout = config.getInt("timeout");
 		List<Integer> whitelistedHours = config.getIntegerList("whitelisted_hours");

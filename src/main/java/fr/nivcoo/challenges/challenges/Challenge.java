@@ -3,6 +3,7 @@ package fr.nivcoo.challenges.challenges;
 import java.util.List;
 
 import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
 
 import fr.nivcoo.challenges.challenges.challenges.Types;
 
@@ -11,6 +12,7 @@ public class Challenge {
 	private Types allowedType;
 
 	private List<String> requirementMaterials;
+	private EntityType entityType;
 	private String message;
 
 	public Challenge(Types allowedType) {
@@ -25,6 +27,11 @@ public class Challenge {
 		return requirementMaterials;
 	}
 
+	public EntityType getEntityType() {
+		return entityType;
+
+	}
+
 	public String getMessage() {
 		return message;
 	}
@@ -33,8 +40,17 @@ public class Challenge {
 		this.requirementMaterials = requirementMaterials;
 	}
 
-	public boolean isInMaterialsRequirement(Material material, int data) {
+	public void setEntityType(EntityType entityType) {
+		this.entityType = entityType;
 
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+
+	}
+
+	public boolean isInMaterialsRequirement(Material material, int data) {
 		for (String materialData : requirementMaterials) {
 			Material m = null;
 			Integer d = null;
@@ -51,8 +67,8 @@ public class Challenge {
 		return false;
 	}
 
-	public void setMessage(String message) {
-		this.message = message;
+	public boolean isEntity(EntityType entity) {
+		return entity.equals(entityType);
 
 	}
 
