@@ -59,17 +59,17 @@ public class Commands implements CommandExecutor {
 					return true;
 				} else if (args[0].equalsIgnoreCase("stop") && sender.hasPermission("challenges.stop")) {
 					challenges.getChallengesManager().stopCurrentChallenge();
-					sender.sendMessage(config.getString("messages.commands.stop_start"));
+					sender.sendMessage(config.getString("messages.commands.success_stop"));
 					return true;
 				} else if (args[0].equalsIgnoreCase("start_interval")
 						&& sender.hasPermission("challenges.start_interval")) {
 					challenges.getChallengesManager().startChallengeInterval();
-					sender.sendMessage(config.getString("messages.commands.stop_start_interval"));
+					sender.sendMessage(config.getString("messages.commands.success_start_interval"));
 					return true;
 				} else if (args[0].equalsIgnoreCase("stop_interval")
 						&& sender.hasPermission("challenges.stop_interval")) {
 					challenges.getChallengesManager().stopChallengeTasks();
-					sender.sendMessage(config.getString("messages.commands.stop_interval"));
+					sender.sendMessage(config.getString("messages.commands.success_stop_interval"));
 					return true;
 				} else {
 					sender.sendMessage(unknownMessage);

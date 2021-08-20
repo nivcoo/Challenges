@@ -71,9 +71,9 @@ messages:
   commands:
     no_permission: "&fCommande inconnue."
     success_start: "&7[&c&lES&7] Le challenge a été envoyé avec succès !"
-    stop_start: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
+    success_stop: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
     success_start_interval: "&7[&c&lES&7] L'interval des challenges a été envoyé avec succès !"
-    stop_start_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
+    success_stop_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
   global:
     second: "seconde"
     seconds: "secondes"
