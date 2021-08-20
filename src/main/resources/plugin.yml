@@ -16,3 +16,9 @@ permissions:
   challenges.stop:
     default: op
     description: Stop Current Challenge
+  challenges.start_interval:
+    default: op
+    description: Start Challenge Interval
+  challenges.stop_interval:
+    default: op
+    description: Stop Challenge Interval

@@ -92,6 +92,7 @@ public class ChallengesManager {
 	}
 
 	public void startChallengeInterval() {
+		stopChallengeTasks();
 		if (interval <= 0)
 			return;
 		List<Integer> whitelistedHours = config.getIntegerList("whitelisted_hours");
@@ -117,7 +118,6 @@ public class ChallengesManager {
 
 	public void startChallenge() {
 		stopCurrentChallenge();
-		clearProgress();
 
 		String countdownMessageActionBar = config.getString("messages.action_bar.countdown");
 		String countdownMessageTitle = config.getString("messages.title.countdown.title");
@@ -258,14 +258,6 @@ public class ChallengesManager {
 		p.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
 	}
 
-	public void clearProgress() {
-		playersProgress = new HashMap<>();
-		selectedChallenge = null;
-		startedTimestamp = null;
-		challengeStarted = false;
-
-	}
-
 	public int getScoreOfPlayer(Player p) {
 		Integer score = playersProgress.get(p);
 		return score == null ? 0 : score;
@@ -393,7 +385,15 @@ public class ChallengesManager {
 		}
 	}
 
+	public void clearProgress() {
+		playersProgress = new HashMap<>();
+		selectedChallenge = null;
+		startedTimestamp = null;
+		challengeStarted = false;
+	}
+
 	public void stopCurrentChallenge() {
+		clearProgress();
 		if (challengeThread != null)
 			challengeThread.interrupt();
 		challengeStarted = false;

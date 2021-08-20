@@ -28,6 +28,12 @@ public class Commands implements CommandExecutor {
 				sender.sendMessage(ChatColor.GOLD + "/clgs start " + ChatColor.YELLOW + "start a challenge !");
 			if (sender.hasPermission("challenges.stop"))
 				sender.sendMessage(ChatColor.GOLD + "/clgs stop " + ChatColor.YELLOW + "stop the current challenge !");
+			if (sender.hasPermission("challenges.start_interval"))
+				sender.sendMessage(
+						ChatColor.GOLD + "/clgs start_interval " + ChatColor.YELLOW + "start challenge interval !");
+			if (sender.hasPermission("challenges.stop_interval"))
+				sender.sendMessage(
+						ChatColor.GOLD + "/clgs stop_interval " + ChatColor.YELLOW + "stop challenge interval !");
 			sender.sendMessage(ChatColor.GRAY + "§m----------------------------------------------");
 
 		}
@@ -54,6 +60,16 @@ public class Commands implements CommandExecutor {
 				} else if (args[0].equalsIgnoreCase("stop") && sender.hasPermission("challenges.stop")) {
 					challenges.getChallengesManager().stopCurrentChallenge();
 					sender.sendMessage(config.getString("messages.commands.stop_start"));
+					return true;
+				} else if (args[0].equalsIgnoreCase("start_interval")
+						&& sender.hasPermission("challenges.start_interval")) {
+					challenges.getChallengesManager().startChallengeInterval();
+					sender.sendMessage(config.getString("messages.commands.stop_start_interval"));
+					return true;
+				} else if (args[0].equalsIgnoreCase("stop_interval")
+						&& sender.hasPermission("challenges.stop_interval")) {
+					challenges.getChallengesManager().stopChallengeTasks();
+					sender.sendMessage(config.getString("messages.commands.stop_interval"));
 					return true;
 				} else {
 					sender.sendMessage(unknownMessage);
