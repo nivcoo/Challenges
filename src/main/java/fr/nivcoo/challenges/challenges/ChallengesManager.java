@@ -44,6 +44,7 @@ public class ChallengesManager {
 	private int interval;
 	private int timeout;
 	private int countdownNumber;
+	private int playerNeeded;
 
 	public ChallengesManager() {
 		challenges = Challenges.get();
@@ -51,6 +52,7 @@ public class ChallengesManager {
 		interval = config.getInt("interval");
 		timeout = config.getInt("timeout");
 		countdownNumber = config.getInt("countdown_number");
+		playerNeeded = config.getInt("players_needed");
 		registerEvents();
 		registerChallenges();
 		playersProgress = new HashMap<>();
@@ -104,7 +106,8 @@ public class ChallengesManager {
 					Calendar rightNow = Calendar.getInstance();
 					int hour = rightNow.get(Calendar.HOUR_OF_DAY);
 					if (challengeStarted
-							|| (whitelistedHours.size() > 0 && !whitelistedHours.contains(hour) && interval > 0))
+							|| (whitelistedHours.size() > 0 && !whitelistedHours.contains(hour) && interval > 0)
+							|| playerNeeded > Bukkit.getServer().getOnlinePlayers().size())
 						continue;
 					startChallenge();
 
