@@ -20,22 +20,21 @@ public class Commands implements CommandExecutor {
 
 	public void help(CommandSender sender) {
 
-		if (sender.hasPermission("challenges.commands") && (sender.hasPermission("challenges.start") || sender.hasPermission("challenges.stop"))) {
+		if (sender.hasPermission("challenges.commands")
+				&& (sender.hasPermission("challenges.start") || sender.hasPermission("challenges.stop"))) {
 			sender.sendMessage(ChatColor.GRAY + "§m------------------" + ChatColor.DARK_GRAY + "[" + ChatColor.GOLD
 					+ "Help Panel" + ChatColor.DARK_GRAY + "]" + ChatColor.GRAY + "§m------------------");
 			if (sender.hasPermission("challenges.start"))
-				sender.sendMessage(
-						ChatColor.GOLD + "/clgs start " + ChatColor.YELLOW + "start a challenge !");
+				sender.sendMessage(ChatColor.GOLD + "/clgs start " + ChatColor.YELLOW + "start a challenge !");
 			if (sender.hasPermission("challenges.stop"))
-				sender.sendMessage(
-						ChatColor.GOLD + "/clgs stop " + ChatColor.YELLOW + "stop the current challenge !");
+				sender.sendMessage(ChatColor.GOLD + "/clgs stop " + ChatColor.YELLOW + "stop the current challenge !");
 			sender.sendMessage(ChatColor.GRAY + "§m----------------------------------------------");
 
 		}
 
 		return;
 	}
-	
+
 	@Override
 	public boolean onCommand(CommandSender sender, Command cmd, String msg, String[] args) {
 		String unknownMessage = config.getString("messages.commands.no_permission");
