@@ -3,3 +3,16 @@ version: 1.0.0
 author: nivcoo
 main: fr.nivcoo.challenges.Challenges
 softdepend: [PlaceholderAPI]
+commands:
+  clgs:
+    description: Challenges Command
+permissions:
+  challenges.commands:
+    default: op
+    description: Global Command
+  challenges.start:
+    default: op
+    description: Start Challenge
+  challenges.stop:
+    default: op
+    description: Stop Current Challenge

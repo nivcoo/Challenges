@@ -8,6 +8,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import fr.nivcoo.challenges.cache.CacheManager;
 import fr.nivcoo.challenges.challenges.ChallengesManager;
+import fr.nivcoo.challenges.command.Commands;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
 import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.Database;
@@ -45,19 +46,19 @@ public class Challenges extends JavaPlugin {
 
 		if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
 			new PlaceHolderAPI().register();
-
 		}
 
 		config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
 
 		challengesManager = new ChallengesManager();
 
+		getCommand("clgs").setExecutor(new Commands());
+
 	}
 
 	@Override
 	public void onDisable() {
-		getChallengesManager().stopChallengesInterval();
-		getChallengesManager().stopActionBarInterval();
+		getChallengesManager().stopChallengeTasks();
 
 	}
 

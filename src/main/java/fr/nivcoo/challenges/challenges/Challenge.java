@@ -35,7 +35,6 @@ public class Challenge {
 
 	public void setMessage(String message) {
 		this.message = message;
-
 	}
 
 	public boolean isInMaterialsRequirement(Material material, int data) {

@@ -28,10 +28,12 @@ import net.md_5.bungee.api.chat.TextComponent;
 
 public class ChallengesManager {
 
-	private Challenges challenges = Challenges.get();
-	private Config config = challenges.getConfiguration();
-	private boolean challengeIntervalRun;
-	private boolean actionBarIntervalRun;
+	private Challenges challenges;
+	private Config config;
+	private boolean challengeStarted;
+	private Thread challengeThread;
+	private Thread challengeIntervalThread;
+	private Thread actionBarIntervalThread;
 	private int delayedCancelTaskID;
 	private List<Challenge> challengesList;
 	private Challenge selectedChallenge;
@@ -39,10 +41,20 @@ public class ChallengesManager {
 	private HashMap<Player, Integer> playersProgress;
 	private Long startedTimestamp;
 
+	private int interval;
+	private int timeout;
+	private int countdownNumber;
+
 	public ChallengesManager() {
+		challenges = Challenges.get();
+		config = challenges.getConfiguration();
+		interval = config.getInt("interval");
+		timeout = config.getInt("timeout");
+		countdownNumber = config.getInt("countdown_number");
 		registerEvents();
 		registerChallenges();
 		playersProgress = new HashMap<>();
+		challengeStarted = false;
 		startChallengeInterval();
 
 	}
@@ -80,45 +92,65 @@ public class ChallengesManager {
 	}
 
 	public void startChallengeInterval() {
-		challengeIntervalRun = true;
-		int interval = config.getInt("interval");
-		int timeout = config.getInt("timeout");
+		if (interval <= 0)
+			return;
 		List<Integer> whitelistedHours = config.getIntegerList("whitelisted_hours");
-		String countdownMessage = config.getString("messages.action_bar.countdown");
-		String second = config.getString("messages.global.second");
-		String seconds = config.getString("messages.global.seconds");
-		Thread t = new Thread(() -> {
-			while (challengeIntervalRun && !Thread.interrupted()) {
+		int countdownNumber = config.getInt("countdown_number");
+		challengeIntervalThread = new Thread(() -> {
+			while (!Thread.interrupted()) {
 				try {
-					int countdownNumber = 5;
 					Thread.sleep(interval * 1000 - countdownNumber * 1000);
-					if (startedTimestamp != null)
-						continue;
 					Calendar rightNow = Calendar.getInstance();
 					int hour = rightNow.get(Calendar.HOUR_OF_DAY);
-					if (!whitelistedHours.contains(hour))
-						return;
-					for (int i = 0; i < countdownNumber; i++) {
-						if (!challengeIntervalRun)
-							return;
-						int timeleft = countdownNumber - i;
-						String secondSelect = (timeleft > 1) ? seconds : second;
-						sendActionBarMessage(
-								countdownMessage.replace("{0}", String.valueOf(timeleft)).replace("{1}", secondSelect));
-						Thread.sleep(1000);
-					}
+					if (challengeStarted
+							|| (whitelistedHours.size() > 0 && !whitelistedHours.contains(hour) && interval > 0))
+						continue;
+					startChallenge();
 
 				} catch (InterruptedException ex) {
-				}
-				if (!challengeIntervalRun)
 					return;
+				}
+			}
+		}, "Challenges Interval Thread");
+		challengeIntervalThread.start();
+	}
 
-				clearProgress();
+	public void startChallenge() {
+		stopCurrentChallenge();
+		clearProgress();
+
+		String countdownMessageActionBar = config.getString("messages.action_bar.countdown");
+		String countdownMessageTitle = config.getString("messages.title.countdown.title");
+		String countdownMessageSubtitle = config.getString("messages.title.countdown.subtitle");
+		String second = config.getString("messages.global.second");
+		String seconds = config.getString("messages.global.seconds");
+		challengeThread = new Thread(() -> {
+			try {
+				challengeStarted = true;
+				for (int i = 0; i < countdownNumber; i++) {
+					int timeleft = countdownNumber - i;
+					String secondSelect = (timeleft > 1) ? seconds : second;
+					sendActionBarMessage(countdownMessageActionBar.replace("{0}", String.valueOf(timeleft))
+							.replace("{1}", secondSelect));
+					sendTitleMessage(
+							countdownMessageTitle.replace("{0}", String.valueOf(timeleft)).replace("{1}", secondSelect),
+							countdownMessageSubtitle.replace("{0}", String.valueOf(timeleft)).replace("{1}",
+									secondSelect),
+							2);
+
+					Thread.sleep(1000);
+				}
 
 				Random rand = new Random();
+				int timeoutM = timeout / 60;
 				selectedChallenge = challengesList.get(rand.nextInt(challengesList.size()));
-
-				sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(timeout),
+				sendTitleMessage(
+						config.getString("messages.title.start.title", String.valueOf(timeoutM),
+								selectedChallenge.getMessage()),
+						config.getString("messages.title.start.subtitle", String.valueOf(timeoutM),
+								selectedChallenge.getMessage()),
+						config.getInt("messages.title.start.stay"));
+				sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(timeoutM),
 						selectedChallenge.getMessage()));
 				Date date = new Date();
 				startedTimestamp = date.getTime();
@@ -128,43 +160,37 @@ public class ChallengesManager {
 					public void run() {
 						sendTop();
 						clearProgress();
-
 					}
 				}, 20 * timeout);
-
+			} catch (InterruptedException ex) {
+				challengeStarted = false;
+				return;
 			}
-		}, "Challenges interval Thread");
-		t.start();
-	}
 
-	public void stopChallengesInterval() {
-		challengeIntervalRun = false;
-		Bukkit.getScheduler().cancelTask(delayedCancelTaskID);
+		}, "Challenges Start Thread");
+		challengeThread.start();
 
 	}
 
 	public void startActionBarInterval() {
-		actionBarIntervalRun = true;
-
 		List<String> blacklistedWorld = config.getStringList("blacklisted_world");
-
-		Thread t = new Thread(() -> {
-			while (actionBarIntervalRun && !Thread.interrupted()) {
-				if (!actionBarIntervalRun)
-					return;
-				for (Player p : Bukkit.getOnlinePlayers()) {
-					if (blacklistedWorld.contains(p.getWorld().getName()))
-						continue;
-					sendActionBarMessage(p);
-				}
+		actionBarIntervalThread = new Thread(() -> {
+			while (!Thread.interrupted()) {
 				try {
+					for (Player p : Bukkit.getOnlinePlayers()) {
+						if (blacklistedWorld.contains(p.getWorld().getName()))
+							continue;
+						sendActionBarMessage(p);
+					}
+
 					Thread.sleep(1000);
 				} catch (InterruptedException ex) {
+					return;
 				}
 			}
 
-		}, "Challenges actionbar interval Thread");
-		t.start();
+		}, "Challenges ActionBar Interval Thread");
+		actionBarIntervalThread.start();
 
 	}
 
@@ -173,6 +199,13 @@ public class ChallengesManager {
 			sendActionBarMessage(p, message);
 		}
 
+	}
+
+	public void sendTitleMessage(String title, String subtitle, int time) {
+		for (Player p : Bukkit.getOnlinePlayers()) {
+			p.resetTitle();
+			p.sendTitle(title, subtitle, 0, time * 20, 0);
+		}
 	}
 
 	public void sendActionBarMessage(Player p) {
@@ -184,16 +217,25 @@ public class ChallengesManager {
 		int timeout = config.getInt("timeout");
 		long s = (timeout) - ((now - startedTimestamp) / 1000);
 		long m = Math.round(s / 60);
+		long h = Math.round(m / 60);
 
 		long number = 0;
 
-		String type = "";
+		String type = null;
 
 		String second = config.getString("messages.global.second");
 		String seconds = config.getString("messages.global.seconds");
 		String minute = config.getString("messages.global.minute");
 		String minutes = config.getString("messages.global.minutes");
-		if (m >= 1) {
+		String hour = config.getString("messages.global.hour");
+		String hours = config.getString("messages.global.hours");
+		if (h >= 1) {
+			number = h;
+			type = hour;
+			if (h > 1)
+				type = hours;
+
+		} else if (m >= 1) {
 			number = m;
 			type = minute;
 			if (m > 1)
@@ -204,12 +246,10 @@ public class ChallengesManager {
 			type = second;
 			if (s > 1)
 				type = seconds;
-
 		}
 
 		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
 				String.valueOf(getScoreOfPlayer(p)), String.valueOf(number), type);
-
 		sendActionBarMessage(p, message);
 
 	}
@@ -218,15 +258,11 @@ public class ChallengesManager {
 		p.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
 	}
 
-	public void stopActionBarInterval() {
-		actionBarIntervalRun = false;
-	}
-
 	public void clearProgress() {
-		stopActionBarInterval();
 		playersProgress = new HashMap<>();
 		selectedChallenge = null;
 		startedTimestamp = null;
+		challengeStarted = false;
 
 	}
 
@@ -305,7 +341,6 @@ public class ChallengesManager {
 	public void sendConsoleCommand(String command, Player p) {
 		Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
 				command.replaceAll("%player%", p.getName()));
-
 	}
 
 	public void addScoreToPlayer(Types type, Player p) {
@@ -356,6 +391,30 @@ public class ChallengesManager {
 			p.playSound(p.getLocation(), sound, .4f, 1.7f);
 
 		}
+	}
+
+	public void stopCurrentChallenge() {
+		if (challengeThread != null)
+			challengeThread.interrupt();
+		challengeStarted = false;
+		stopActionBarInterval();
+		cancelDelayedTask();
+	}
+
+	public void stopChallengeTasks() {
+		if (challengeIntervalThread != null)
+			challengeIntervalThread.interrupt();
+		stopCurrentChallenge();
+	}
+
+	public void stopActionBarInterval() {
+		if (actionBarIntervalThread != null)
+			actionBarIntervalThread.interrupt();
+	}
+
+	public void cancelDelayedTask() {
+
+		Bukkit.getScheduler().cancelTask(delayedCancelTaskID);
 	}
 
 }

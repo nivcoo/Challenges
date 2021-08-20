@@ -1,60 +1,47 @@
+# in seconds, set 0 to disable and use command
+interval: 20
 # in seconds
-interval: 1
-# in seconds
-timeout: 1
+timeout: 60
+
+#number of second for countdown
+countdown_number: 5
 
 sound:
   messages: ENTITY_EXPERIENCE_ORB_PICKUP
   add: ENTITY_EXPERIENCE_ORB_PICKUP
   remove: BLOCK_ANVIL_BREAK
 
-# if the hour isn't into the list the challenges isn't start
-whitelisted_hours:
-  - 8
-  - 9
-  - 10
-  - 11
-  - 12
-  - 13
-  - 14
-  - 15
-  - 16
-  - 17
-  - 18
-  - 19
-  - 20
-  - 21
-  - 22
-  - 23
+# if the hour isn't into the list the challenges isn't start, useless if interval = 0, set [] to disable
+whitelisted_hours: []
 
 blacklisted_world:
   - invest
 
-challenges_example:
-  '0':
-    message: "Casser des Roches"
-    challenge: "BLOCK_BREAK"
-    requirement:
-      - "STONE:0"
-  '1':
-    message: "Tuer des zombies"
-    challenge: "ENTITY_DEATH"
-    requirement:
-      - "ZOMBIE"
-  '2':
-    message: "Pêcher des Objets/Poissons"
-    challenge: "FISHING"
-  '3':
-    message: "Enchanter des objets"
-    challenge: "ENCHANT_ALL"
-  '4':
-    message: "Enchanter des Pelles en fer"
-    challenge: "ENCHANT_ALL"
-    requirement:
-      - "IRON_SHOVEL"
-  '5':
-    message: "Manger des Légumes"
-    challenge: "CONSUME"
+#challenges_example:
+#  '0':
+#    message: "Casser des Roches"
+#    challenge: "BLOCK_BREAK"
+#    requirement:
+#      - "STONE:0"
+#  '1':
+#    message: "Tuer des zombies"
+#    challenge: "ENTITY_DEATH"
+#    requirement:
+#      - "ZOMBIE"
+#  '2':
+#    message: "Pêcher des Objets/Poissons"
+#    challenge: "FISHING"
+#  '3':
+#    message: "Enchanter des objets"
+#    challenge: "ENCHANT_ALL"
+#  '4':
+#    message: "Enchanter des Pelles en fer"
+#    challenge: "ENCHANT_ALL"
+#    requirement:
+#      - "IRON_SHOVEL"
+#  '5':
+#    message: "Manger des Légumes"
+#    challenge: "CONSUME"
 
 challenges:
   '0':
@@ -69,7 +56,7 @@ rewards:
     message: "1 Diamant"
     commands:
       - "give %player% diamond 1"
-  add_all_top_into_db: false
+  add_all_top_into_db: true
   top:
     '1':
       message: "1 terre"
@@ -81,6 +68,10 @@ rewards:
         - "give %player% dirt 1"
 
 messages:
+  commands:
+    no_permission: "&fCommande inconnue."
+    success_start: "&7[&c&lES&7] Le challenge a été envoyé avec succès !"
+    stop_start: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
   global:
     second: "seconde"
     seconds: "secondes"
@@ -88,6 +79,14 @@ messages:
     minutes: "minutes"
     hour: "heure"
     hours: "heures"
+  title:
+    start:
+      stay: 4
+      title: "Défi !"
+      subtitle: "Vous avez {0} minutes pour : &a{1} !"
+    countdown:
+      title: "Défi !"
+      subtitle: "Défi lancé dans {0} {1} !"
   action_bar:
     message: "{0} : {1} - {2} {3} restantes !"
     countdown: "Défi lancé dans {0} {1} !"
