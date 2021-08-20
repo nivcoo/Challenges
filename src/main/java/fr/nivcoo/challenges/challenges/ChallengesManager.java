@@ -136,7 +136,7 @@ public class ChallengesManager {
 							countdownMessageTitle.replace("{0}", String.valueOf(timeleft)).replace("{1}", secondSelect),
 							countdownMessageSubtitle.replace("{0}", String.valueOf(timeleft)).replace("{1}",
 									secondSelect),
-							2);
+							2, 0, 0);
 
 					Thread.sleep(1000);
 				}
@@ -149,7 +149,8 @@ public class ChallengesManager {
 								selectedChallenge.getMessage()),
 						config.getString("messages.title.start.subtitle", String.valueOf(timeoutM),
 								selectedChallenge.getMessage()),
-						config.getInt("messages.title.start.stay"));
+						config.getInt("messages.title.start.stay"), config.getInt("messages.title.start.fadeInTick"),
+						config.getInt("messages.title.start.fadeOutTick"));
 				sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(timeoutM),
 						selectedChallenge.getMessage()));
 				Date date = new Date();
@@ -201,10 +202,10 @@ public class ChallengesManager {
 
 	}
 
-	public void sendTitleMessage(String title, String subtitle, int time) {
+	public void sendTitleMessage(String title, String subtitle, int time, int fadeInTick, int fadeOutTick) {
 		for (Player p : Bukkit.getOnlinePlayers()) {
 			p.resetTitle();
-			p.sendTitle(title, subtitle, 0, time * 20, 0);
+			p.sendTitle(title, subtitle, fadeInTick, time * 20, fadeOutTick);
 		}
 	}
 

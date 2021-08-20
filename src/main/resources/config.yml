@@ -91,6 +91,8 @@ messages:
   title:
     start:
       stay: 4
+      fadeInTick: 10
+      fadeOutTick: 20
       title: "Défi !"
       subtitle: "Vous avez {0} minutes pour : &a{1} !"
     countdown:
