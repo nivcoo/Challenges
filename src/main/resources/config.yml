@@ -70,6 +70,13 @@ rewards:
 messages:
   commands:
     no_permission: "&fCommande inconnue."
+    help:
+      - "&7&m------------------&8[&6Help Panel&8]&7&m------------------"
+      - "{!challenges.start}&6/clgs start &estart a challenge !"
+      - "{!challenges.stop}&6/clgs stop &estop the current challenge !"
+      - "{!challenges.start_interval}&6/clgs start_interval &estart challenge interval !"
+      - "{!challenges.stop_interval}&6/clgs stop_interval &estop challenge interval !"
+      - "&7&m----------------------------------------------"
     success_start: "&7[&c&lES&7] Le challenge a été envoyé avec succès !"
     success_stop: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
     success_start_interval: "&7[&c&lES&7] L'interval des challenges a été lancé avec succès !"

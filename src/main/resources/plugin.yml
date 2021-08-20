@@ -7,9 +7,9 @@ commands:
   clgs:
     description: Challenges Command
 permissions:
-  challenges.commands:
+  challenges.help:
     default: op
-    description: Global Command
+    description: help
   challenges.start:
     default: op
     description: Start Challenge
