@@ -81,7 +81,6 @@ public class ChallengesManager {
 
 	public void startChallengeInterval() {
 		challengeIntervalRun = true;
-		int coef = 10; // default 60 for minute;
 		int interval = config.getInt("interval");
 		int timeout = config.getInt("timeout");
 		List<Integer> whitelistedHours = config.getIntegerList("whitelisted_hours");
@@ -92,7 +91,7 @@ public class ChallengesManager {
 			while (challengeIntervalRun && !Thread.interrupted()) {
 				try {
 					int countdownNumber = 5;
-					Thread.sleep(interval * coef * 1000 - countdownNumber * 1000);
+					Thread.sleep(interval * 1000 - countdownNumber * 1000);
 					if (startedTimestamp != null)
 						continue;
 					Calendar rightNow = Calendar.getInstance();
@@ -131,7 +130,7 @@ public class ChallengesManager {
 						clearProgress();
 
 					}
-				}, 20 * timeout * coef);
+				}, 20 * timeout);
 
 			}
 		}, "Challenges interval Thread");
@@ -183,7 +182,7 @@ public class ChallengesManager {
 		Date date = new Date();
 		long now = date.getTime();
 		int timeout = config.getInt("timeout");
-		long s = (timeout * 60) - ((now - startedTimestamp) / 1000);
+		long s = (timeout) - ((now - startedTimestamp) / 1000);
 		long m = Math.round(s / 60);
 
 		long number = 0;
@@ -274,6 +273,14 @@ public class ChallengesManager {
 			for (String c : commandsTop) {
 				sendConsoleCommand(c, player);
 				player.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
+			}
+
+			boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+			if (addAllTop || place == 1) {
+				int addNumber = 1;
+				if (addAllTop)
+					addNumber = keys.size() - place + 1;
+				challenges.getCacheManager().updatePlayerCount(player, addNumber);
 			}
 
 		}

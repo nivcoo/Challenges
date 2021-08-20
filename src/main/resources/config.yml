@@ -1,6 +1,6 @@
-# in minutes
+# in seconds
 interval: 1
-# in minutes
+# in seconds
 timeout: 1
 
 sound:
@@ -26,9 +26,6 @@ whitelisted_hours:
   - 21
   - 22
   - 23
-  - 24
-  - 00
-  - 01
 
 blacklisted_world:
   - invest
@@ -72,6 +69,7 @@ rewards:
     message: "1 Diamant"
     commands:
       - "give %player% diamond 1"
+  add_all_top_into_db: false
   top:
     '1':
       message: "1 terre"
