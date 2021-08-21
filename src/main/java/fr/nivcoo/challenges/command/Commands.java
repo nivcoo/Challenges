@@ -16,7 +16,6 @@ public class Commands implements CommandExecutor {
 	public Commands() {
 		challenges = Challenges.get();
 		config = challenges.getConfiguration();
-
 	}
 
 	public void help(CommandSender sender) {
@@ -55,23 +54,27 @@ public class Commands implements CommandExecutor {
 				return true;
 			} else if (args.length >= 1) {
 
-				if (args[0].equalsIgnoreCase("start") && sender.hasPermission("challenges.start")) {
+				if (args[0].equalsIgnoreCase("start") && sender.hasPermission("challenges.commands.start")) {
 					challenges.getChallengesManager().startChallenge();
 					sender.sendMessage(config.getString("messages.commands.success_start"));
 					return true;
-				} else if (args[0].equalsIgnoreCase("stop") && sender.hasPermission("challenges.stop")) {
+				} else if (args[0].equalsIgnoreCase("stop") && sender.hasPermission("challenges.commands.stop")) {
 					challenges.getChallengesManager().stopCurrentChallenge();
 					sender.sendMessage(config.getString("messages.commands.success_stop"));
 					return true;
 				} else if (args[0].equalsIgnoreCase("start_interval")
-						&& sender.hasPermission("challenges.start_interval")) {
+						&& sender.hasPermission("challenges.commands.start_interval")) {
 					challenges.getChallengesManager().startChallengeInterval();
 					sender.sendMessage(config.getString("messages.commands.success_start_interval"));
 					return true;
 				} else if (args[0].equalsIgnoreCase("stop_interval")
-						&& sender.hasPermission("challenges.stop_interval")) {
+						&& sender.hasPermission("challenges.commands.stop_interval")) {
 					challenges.getChallengesManager().stopChallengeTasks();
 					sender.sendMessage(config.getString("messages.commands.success_stop_interval"));
+					return true;
+				} else if (args[0].equalsIgnoreCase("reload") && sender.hasPermission("challenges.commands.reload")) {
+					challenges.reload();
+					sender.sendMessage(config.getString("messages.commands.success_reload"));
 					return true;
 				} else {
 					sender.sendMessage(unknownMessage);

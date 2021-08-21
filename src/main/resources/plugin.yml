@@ -10,15 +10,18 @@ permissions:
   challenges.help:
     default: op
     description: help
-  challenges.start:
+  challenges.command.start:
     default: op
     description: Start Challenge
-  challenges.stop:
+  challenges.command.stop:
     default: op
     description: Stop Current Challenge
-  challenges.start_interval:
+  challenges.command.start_interval:
     default: op
     description: Start Challenge Interval
-  challenges.stop_interval:
+  challenges.command.stop_interval:
     default: op
     description: Stop Challenge Interval
+  challenges.command.reload:
+    default: op
+    description: Reload the Plugin

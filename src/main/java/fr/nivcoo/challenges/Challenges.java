@@ -22,6 +22,7 @@ public class Challenges extends JavaPlugin {
 	private Database db;
 	private CacheManager cacheManager;
 	private TimeUtil timeUtil;
+	private Commands commands;
 
 	@Override
 	public void onEnable() {
@@ -39,34 +40,44 @@ public class Challenges extends JavaPlugin {
 			} catch (IOException e) {
 			}
 		}
-
 		db = new Database(database.getPath());
 		db.initDB();
 
 		config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
 
-		String timePath = "messages.global.";
-
-		timeUtil = new TimeUtil(config.getString(timePath + "second"), config.getString(timePath + "seconds"),
-				config.getString(timePath + "minute"), config.getString(timePath + "minutes"),
-				config.getString(timePath + "hour"), config.getString(timePath + "hours"));
+		loadTimeUtil();
 
 		cacheManager = new CacheManager();
 		Bukkit.getPluginManager().registerEvents(cacheManager, this);
+
+		challengesManager = new ChallengesManager();
+		commands = new Commands();
 
 		if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
 			new PlaceHolderAPI().register();
 		}
 
-		challengesManager = new ChallengesManager();
-
-		getCommand("clgs").setExecutor(new Commands());
+		getCommand("clgs").setExecutor(commands);
 
 	}
 
 	@Override
 	public void onDisable() {
 		getChallengesManager().stopChallengeTasks();
+	}
+
+	public void reload() {
+		config.loadConfig();
+		loadTimeUtil();
+		cacheManager.reload();
+		challengesManager.reload();
+	}
+
+	public void loadTimeUtil() {
+		String timePath = "messages.global.";
+		timeUtil = new TimeUtil(config.getString(timePath + "second"), config.getString(timePath + "seconds"),
+				config.getString(timePath + "minute"), config.getString(timePath + "minutes"),
+				config.getString(timePath + "hour"), config.getString(timePath + "hours"));
 	}
 
 	public Config getConfiguration() {

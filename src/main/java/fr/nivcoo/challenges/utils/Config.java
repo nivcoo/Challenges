@@ -39,7 +39,7 @@ public class Config {
 	/**
 	 * public void loadConfig: This method will load the yml file.
 	 */
-	private void loadConfig() {
+	public void loadConfig() {
 		fconfig = YamlConfiguration.loadConfiguration(fichierConfig);
 	}
 

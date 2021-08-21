@@ -21,6 +21,10 @@ public class CacheManager implements Listener {
 	private HashMap<UUID, Integer> playersClassementCache;
 
 	public CacheManager() {
+		init();
+	}
+
+	public void init() {
 		challenges = Challenges.get();
 		db = challenges.getDatabase();
 		playersClassementCache = new HashMap<>();
@@ -53,6 +57,10 @@ public class CacheManager implements Listener {
 		int count = db.getPlayerCount(uuid);
 		playersClassementCache.put(uuid, count);
 
+	}
+
+	public void reload() {
+		init();
 	}
 
 }

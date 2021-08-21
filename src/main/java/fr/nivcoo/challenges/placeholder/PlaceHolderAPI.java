@@ -69,9 +69,10 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 			return challenges.getChallengesManager().getPlayerCountProgressByPlace(place);
 		} else if (identifier.equals("current_challenge_countdown")) {
 			TimePair<Long, String> countdown = challenges.getChallengesManager().getCountdown();
+			String countdownPath = "messages.placeholders.current_challenge_countdown.";
 			if (countdown == null)
-				return config.getString("messages.global.none");
-			return config.getString("messages.placeholders.current_challenge_countdown",
+				return config.getString(countdownPath + "stop");
+			return config.getString(countdownPath + "started",
 					String.valueOf(countdown.getFirst()), countdown.getSecond());
 		}
 

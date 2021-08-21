@@ -51,6 +51,11 @@ public class ChallengesManager {
 	private int playerNeeded;
 
 	public ChallengesManager() {
+		init();
+
+	}
+
+	public void init() {
 		challenges = Challenges.get();
 		config = challenges.getConfiguration();
 		interval = config.getInt("interval");
@@ -62,7 +67,6 @@ public class ChallengesManager {
 		playersProgress = new HashMap<>();
 		challengeStarted = false;
 		startChallengeInterval();
-
 	}
 
 	public void registerEvents() {
@@ -106,7 +110,10 @@ public class ChallengesManager {
 		challengeIntervalThread = new Thread(() -> {
 			while (!Thread.interrupted()) {
 				try {
-					Thread.sleep(interval * 1000 - countdownNumber * 1000);
+					int sleeptime = interval * 1000 - countdownNumber * 1000;
+					if (sleeptime < 0)
+						sleeptime = 0;
+					Thread.sleep(sleeptime);
 					Calendar rightNow = Calendar.getInstance();
 					int hour = rightNow.get(Calendar.HOUR_OF_DAY);
 					if (isChallengeStarted()
@@ -452,6 +459,12 @@ public class ChallengesManager {
 				return place;
 		}
 		return 0;
+	}
+
+	public void reload() {
+		stopChallengeTasks();
+		init();
+
 	}
 
 }
