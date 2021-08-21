@@ -129,4 +129,17 @@ public class Database {
 		return count;
 	}
 
+	public void clearDB() {
+		connect();
+		try {
+			PreparedStatement preparedStatement = connection.prepareStatement("DELETE FROM classement;");
+			preparedStatement.executeUpdate();
+			preparedStatement.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		close();
+
+	}
+
 }

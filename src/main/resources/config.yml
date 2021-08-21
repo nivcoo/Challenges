@@ -101,6 +101,7 @@ messages:
     success_start_interval: "&7[&c&lES&7] L'interval des challenges a été lancé avec succès !"
     success_stop_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
     success_reload: "&7[&c&lES&7] Le plugin vient d'être reload !"
+    success_delete_datas: "&7[&c&lES&7] La base de données vient d'être vidée !"
   global:
     none: "Aucun"
     none2: "Aucune"

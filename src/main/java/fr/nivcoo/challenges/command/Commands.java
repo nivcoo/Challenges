@@ -80,6 +80,12 @@ public class Commands implements CommandExecutor {
 					challenges.reload();
 					sender.sendMessage(config.getString("messages.commands.success_reload"));
 					return true;
+				} else if (args[0].equalsIgnoreCase("delete_datas")
+						&& sender.hasPermission("challenges.commands.delete_datas")) {
+					challenges.getDatabase().clearDB();
+					challenges.reload();
+					sender.sendMessage(config.getString("messages.commands.success_delete_datas"));
+					return true;
 				} else {
 					sender.sendMessage(unknownMessage);
 					return false;

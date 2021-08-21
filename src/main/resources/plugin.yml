@@ -28,3 +28,6 @@ permissions:
   challenges.command.reload:
     default: op
     description: Reload the Plugin
+  challenges.command.delete_datas:
+    default: op
+    description: Delete all db datas
