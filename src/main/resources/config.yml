@@ -84,6 +84,8 @@ messages:
     current_challenge_countdown:
       started: "{0} {1}"
       stop: "&c✖"
+    current_challenge_place:
+      none: "&f??"
   commands:
     no_permission: "&fCommande inconnue."
     help:
@@ -105,7 +107,6 @@ messages:
     success_delete_datas: "&7[&c&lES&7] La base de données vient d'être vidée !"
   global:
     none: "Aucun"
-    none2: "Aucune"
     second: "seconde"
     seconds: "secondes"
     minute: "minute"

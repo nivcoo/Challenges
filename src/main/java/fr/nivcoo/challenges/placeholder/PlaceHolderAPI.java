@@ -54,7 +54,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 			return String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p));
 		} else if (identifier.equals("current_challenge_place")) {
 			Player p = player.getPlayer();
-			String noneMessage = config.getString("messages.global.none2");
+			String noneMessage = config.getString("messages.placeholders.current_challenge_place.none");
 			if (p == null)
 				return noneMessage;
 			int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
