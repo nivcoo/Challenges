@@ -62,6 +62,10 @@ public class Commands implements CommandExecutor {
 					challenges.getChallengesManager().stopCurrentChallenge();
 					sender.sendMessage(config.getString("messages.commands.success_stop"));
 					return true;
+				} else if (args[0].equalsIgnoreCase("end") && sender.hasPermission("challenges.commands.end")) {
+					challenges.getChallengesManager().finishChallenge();
+					sender.sendMessage(config.getString("messages.commands.success_end"));
+					return true;
 				} else if (args[0].equalsIgnoreCase("start_interval")
 						&& sender.hasPermission("challenges.commands.start_interval")) {
 					challenges.getChallengesManager().startChallengeInterval();

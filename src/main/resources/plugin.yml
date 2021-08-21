@@ -16,6 +16,9 @@ permissions:
   challenges.command.stop:
     default: op
     description: Stop Current Challenge
+  challenges.command.end:
+    default: op
+    description: Stop Current Challenge with rewards
   challenges.command.start_interval:
     default: op
     description: Start Challenge Interval

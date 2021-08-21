@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 import org.bukkit.Bukkit;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import fr.nivcoo.challenges.cache.CacheManager;
@@ -46,9 +47,7 @@ public class Challenges extends JavaPlugin {
 		config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
 
 		loadTimeUtil();
-
-		cacheManager = new CacheManager();
-		Bukkit.getPluginManager().registerEvents(cacheManager, this);
+		loadCacheManager();
 
 		challengesManager = new ChallengesManager();
 		commands = new Commands();
@@ -67,10 +66,16 @@ public class Challenges extends JavaPlugin {
 	}
 
 	public void reload() {
+		HandlerList.unregisterAll(this);
+		loadCacheManager();
 		config.loadConfig();
 		loadTimeUtil();
-		cacheManager.reload();
 		challengesManager.reload();
+	}
+
+	public void loadCacheManager() {
+		cacheManager = new CacheManager();
+		Bukkit.getPluginManager().registerEvents(cacheManager, this);
 	}
 
 	public void loadTimeUtil() {

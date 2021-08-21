@@ -52,7 +52,6 @@ public class ChallengesManager {
 
 	public ChallengesManager() {
 		init();
-
 	}
 
 	public void init() {
@@ -138,7 +137,7 @@ public class ChallengesManager {
 		String countdownMessageSubtitle = config.getString("messages.title.countdown.subtitle");
 		challengeThread = new Thread(() -> {
 			try {
-				
+
 				for (int i = 0; i < countdownNumber; i++) {
 					int timeleft = countdownNumber - i;
 					TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(timeleft);
@@ -155,7 +154,7 @@ public class ChallengesManager {
 
 					Thread.sleep(1000);
 				}
-				
+
 				challengeStarted = true;
 
 				Random rand = new Random();
@@ -181,8 +180,7 @@ public class ChallengesManager {
 				delayedCancelTaskID = Bukkit.getScheduler().scheduleSyncDelayedTask(challenges, new Runnable() {
 					@Override
 					public void run() {
-						sendTop();
-						clearProgress();
+						finishChallenge();
 					}
 				}, 20 * timeout);
 			} catch (InterruptedException ex) {
@@ -193,6 +191,11 @@ public class ChallengesManager {
 		}, "Challenges Start Thread");
 		challengeThread.start();
 
+	}
+
+	public void finishChallenge() {
+		sendTop();
+		stopCurrentChallenge();
 	}
 
 	public void startActionBarInterval() {
