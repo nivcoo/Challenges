@@ -138,7 +138,7 @@ public class ChallengesManager {
 		String countdownMessageSubtitle = config.getString("messages.title.countdown.subtitle");
 		challengeThread = new Thread(() -> {
 			try {
-				challengeStarted = true;
+				
 				for (int i = 0; i < countdownNumber; i++) {
 					int timeleft = countdownNumber - i;
 					TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(timeleft);
@@ -155,6 +155,8 @@ public class ChallengesManager {
 
 					Thread.sleep(1000);
 				}
+				
+				challengeStarted = true;
 
 				Random rand = new Random();
 
