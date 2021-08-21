@@ -94,7 +94,7 @@ messages:
       - "{!challenges.command.stop_interval}&6/clgs stop_interval &estop challenge interval !"
       - "{!challenges.command.reload}&6/clgs reload &ereload the plugin !"
       - "&7&m----------------------------------------------"
-    success_start: "&7[&c&lES&7] Le challenge a été envoyé avec succès !"
+    success_start: "&7[&c&lES&7] Le challenge a été lancé avec succès !"
     success_stop: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
     success_start_interval: "&7[&c&lES&7] L'interval des challenges a été lancé avec succès !"
     success_stop_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
