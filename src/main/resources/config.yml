@@ -5,6 +5,7 @@
 # %challenges_current_challenge_message%
 # %challenges_current_challenge_count%
 # %challenges_current_challenge_place%
+# %challenges_current_challenge_countdown%
 
 # in seconds, set 0 to disable and use command
 interval: 20
@@ -79,6 +80,8 @@ rewards:
         - "give %player% dirt 1"
 
 messages:
+  placeholders:
+    current_challenge_countdown: "{0} {1}"
   commands:
     no_permission: "&fCommande inconnue."
     help:

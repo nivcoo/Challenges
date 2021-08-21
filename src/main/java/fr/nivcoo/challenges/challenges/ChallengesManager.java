@@ -223,24 +223,25 @@ public class ChallengesManager {
 	}
 
 	public void sendActionBarMessage(Player p) {
-		if (selectedChallenge == null)
+		TimePair<Long, String> getTimePair = getCountdown();
+		if (getTimePair == null)
 			return;
+		long number = getTimePair.getFirst();
+		String type = getTimePair.getSecond();
+		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
+				String.valueOf(getScoreOfPlayer(p)), String.valueOf(number), type);
+		sendActionBarMessage(p, message);
+	}
 
+	public TimePair<Long, String> getCountdown() {
+		if (selectedChallenge == null)
+			return null;
 		Date date = new Date();
 		long now = date.getTime();
 		int timeout = config.getInt("timeout");
 		long s = (timeout) - ((now - startedTimestamp) / 1000);
 
-		TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(s);
-
-		long number = getTimePair.getFirst();
-
-		String type = getTimePair.getSecond();
-
-		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
-				String.valueOf(getScoreOfPlayer(p)), String.valueOf(number), type);
-		sendActionBarMessage(p, message);
-
+		return challenges.getTimeUtil().getTimeAndTypeBySecond(s);
 	}
 
 	public void sendActionBarMessage(Player p, String message) {
