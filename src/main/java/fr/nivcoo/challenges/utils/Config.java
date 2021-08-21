@@ -131,9 +131,9 @@ public class Config {
 	 *
 	 */
 	public List<String> getStringList(String path) {
-		List<String> name = new ArrayList<>();
+		List<String> name = new ArrayList<String>();
 		for (String nom : fconfig.getStringList(path)) {
-			name.add(nom.replace("&", "§"));
+			name.add(nom.replaceAll("&", "§"));
 		}
 		return name;
 	}

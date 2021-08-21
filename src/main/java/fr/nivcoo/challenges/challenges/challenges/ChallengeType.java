@@ -4,7 +4,6 @@ import org.bukkit.entity.Player;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.Challenge;
-
 public class ChallengeType {
 	protected Types type;
 
