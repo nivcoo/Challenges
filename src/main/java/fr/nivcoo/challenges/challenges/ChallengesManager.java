@@ -450,7 +450,7 @@ public class ChallengesManager {
 			if (player.equals(p))
 				return place;
 		}
-		return place;
+		return 0;
 	}
 
 }
