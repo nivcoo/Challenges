@@ -12,6 +12,7 @@ import fr.nivcoo.challenges.command.Commands;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
 import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.Database;
+import fr.nivcoo.challenges.utils.time.TimeUtil;
 
 public class Challenges extends JavaPlugin {
 
@@ -20,6 +21,7 @@ public class Challenges extends JavaPlugin {
 	private ChallengesManager challengesManager;
 	private Database db;
 	private CacheManager cacheManager;
+	private TimeUtil timeUtil;
 
 	@Override
 	public void onEnable() {
@@ -41,14 +43,20 @@ public class Challenges extends JavaPlugin {
 		db = new Database(database.getPath());
 		db.initDB();
 
+		config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
+
+		String timePath = "messages.global.";
+
+		timeUtil = new TimeUtil(config.getString(timePath + "second"), config.getString(timePath + "seconds"),
+				config.getString(timePath + "minute"), config.getString(timePath + "minutes"),
+				config.getString(timePath + "hour"), config.getString(timePath + "hours"));
+
 		cacheManager = new CacheManager();
 		Bukkit.getPluginManager().registerEvents(cacheManager, this);
 
 		if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
 			new PlaceHolderAPI().register();
 		}
-
-		config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
 
 		challengesManager = new ChallengesManager();
 
@@ -75,6 +83,10 @@ public class Challenges extends JavaPlugin {
 
 	public CacheManager getCacheManager() {
 		return cacheManager;
+	}
+
+	public TimeUtil getTimeUtil() {
+		return timeUtil;
 	}
 
 	public static Challenges get() {

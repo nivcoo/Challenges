@@ -2,10 +2,13 @@ package fr.nivcoo.challenges.challenges;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -23,6 +26,7 @@ import fr.nivcoo.challenges.challenges.challenges.types.EnchantAllType;
 import fr.nivcoo.challenges.challenges.challenges.types.EntityDeathType;
 import fr.nivcoo.challenges.challenges.challenges.types.FishingType;
 import fr.nivcoo.challenges.utils.Config;
+import fr.nivcoo.challenges.utils.time.TimePair;
 import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 
@@ -105,7 +109,7 @@ public class ChallengesManager {
 					Thread.sleep(interval * 1000 - countdownNumber * 1000);
 					Calendar rightNow = Calendar.getInstance();
 					int hour = rightNow.get(Calendar.HOUR_OF_DAY);
-					if (challengeStarted
+					if (isChallengeStarted()
 							|| (whitelistedHours.size() > 0 && !whitelistedHours.contains(hour) && interval > 0)
 							|| playerNeeded > Bukkit.getServer().getOnlinePlayers().size())
 						continue;
@@ -125,36 +129,42 @@ public class ChallengesManager {
 		String countdownMessageActionBar = config.getString("messages.action_bar.countdown");
 		String countdownMessageTitle = config.getString("messages.title.countdown.title");
 		String countdownMessageSubtitle = config.getString("messages.title.countdown.subtitle");
-		String second = config.getString("messages.global.second");
-		String seconds = config.getString("messages.global.seconds");
 		challengeThread = new Thread(() -> {
 			try {
 				challengeStarted = true;
 				for (int i = 0; i < countdownNumber; i++) {
 					int timeleft = countdownNumber - i;
-					String secondSelect = (timeleft > 1) ? seconds : second;
-					sendActionBarMessage(countdownMessageActionBar.replace("{0}", String.valueOf(timeleft))
-							.replace("{1}", secondSelect));
-					sendTitleMessage(
-							countdownMessageTitle.replace("{0}", String.valueOf(timeleft)).replace("{1}", secondSelect),
-							countdownMessageSubtitle.replace("{0}", String.valueOf(timeleft)).replace("{1}",
-									secondSelect),
-							2, 0, 0);
+					TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(timeleft);
+
+					long number = getTimePair.getFirst();
+
+					String type = getTimePair.getSecond();
+
+					sendActionBarMessage(
+							countdownMessageActionBar.replace("{0}", String.valueOf(number)).replace("{1}", type));
+					sendTitleMessage(countdownMessageTitle.replace("{0}", String.valueOf(number)).replace("{1}", type),
+							countdownMessageSubtitle.replace("{0}", String.valueOf(number)).replace("{1}", type), 2, 0,
+							0);
 
 					Thread.sleep(1000);
 				}
 
 				Random rand = new Random();
-				int timeoutM = timeout / 60;
+
+				TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(timeout);
+
+				long number = getTimePair.getFirst();
+
+				String type = getTimePair.getSecond();
 				selectedChallenge = challengesList.get(rand.nextInt(challengesList.size()));
 				sendTitleMessage(
-						config.getString("messages.title.start.title", String.valueOf(timeoutM),
+						config.getString("messages.title.start.title", String.valueOf(number), type,
 								selectedChallenge.getMessage()),
-						config.getString("messages.title.start.subtitle", String.valueOf(timeoutM),
+						config.getString("messages.title.start.subtitle", String.valueOf(number), type,
 								selectedChallenge.getMessage()),
 						config.getInt("messages.title.start.stay"), config.getInt("messages.title.start.fadeInTick"),
 						config.getInt("messages.title.start.fadeOutTick"));
-				sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(timeoutM),
+				sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(number), type,
 						selectedChallenge.getMessage()));
 				Date date = new Date();
 				startedTimestamp = date.getTime();
@@ -220,37 +230,12 @@ public class ChallengesManager {
 		long now = date.getTime();
 		int timeout = config.getInt("timeout");
 		long s = (timeout) - ((now - startedTimestamp) / 1000);
-		long m = Math.round(s / 60);
-		long h = Math.round(m / 60);
 
-		long number = 0;
+		TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(s);
 
-		String type = null;
+		long number = getTimePair.getFirst();
 
-		String second = config.getString("messages.global.second");
-		String seconds = config.getString("messages.global.seconds");
-		String minute = config.getString("messages.global.minute");
-		String minutes = config.getString("messages.global.minutes");
-		String hour = config.getString("messages.global.hour");
-		String hours = config.getString("messages.global.hours");
-		if (h >= 1) {
-			number = h;
-			type = hour;
-			if (h > 1)
-				type = hours;
-
-		} else if (m >= 1) {
-			number = m;
-			type = minute;
-			if (m > 1)
-				type = minutes;
-
-		} else {
-			number = s;
-			type = second;
-			if (s > 1)
-				type = seconds;
-		}
+		String type = getTimePair.getSecond();
 
 		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
 				String.valueOf(getScoreOfPlayer(p)), String.valueOf(number), type);
@@ -268,6 +253,7 @@ public class ChallengesManager {
 	}
 
 	public void sendTop() {
+		sortPlayersProgress();
 		String noPlayerMessage = config.getString("messages.chat.no_player");
 		List<String> keys = config.getKeys("rewards.top");
 		int place = 0;
@@ -419,6 +405,52 @@ public class ChallengesManager {
 	public void cancelDelayedTask() {
 
 		Bukkit.getScheduler().cancelTask(delayedCancelTaskID);
+	}
+
+	public boolean isChallengeStarted() {
+		return challengeStarted;
+	}
+
+	public void sortPlayersProgress() {
+
+		playersProgress = playersProgress.entrySet().stream().sorted(Entry.comparingByValue(Comparator.reverseOrder()))
+				.collect(Collectors.toMap(Entry::getKey, Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+
+	}
+
+	public String getPlayerNameProgressByPlace(int place) {
+		sortPlayersProgress();
+		List<Player> indexes = new ArrayList<>(playersProgress.keySet());
+		Player get = null;
+		int index = place - 1;
+		if (place <= indexes.size())
+			get = indexes.get(index);
+		if (get == null)
+			return config.getString("messages.global.none");
+		return get.getName();
+	}
+
+	public String getPlayerCountProgressByPlace(int place) {
+		sortPlayersProgress();
+		List<Integer> indexes = new ArrayList<>(playersProgress.values());
+		Integer get = null;
+		int index = place - 1;
+		if (place <= indexes.size())
+			get = indexes.get(index);
+		if (get == null)
+			return "0";
+		return String.valueOf(get);
+	}
+
+	public int getPlaceOfPlayer(Player player) {
+		sortPlayersProgress();
+		int place = 0;
+		for (Player p : playersProgress.keySet()) {
+			place++;
+			if (player.equals(p))
+				return place;
+		}
+		return place;
 	}
 
 }

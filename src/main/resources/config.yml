@@ -1,3 +1,11 @@
+# %challenges_get_classement_score%
+# %challenges_is_started%
+# %challenges_top_username_1%
+# %challenges_top_count_2%
+# %challenges_current_challenge_message%
+# %challenges_current_challenge_count%
+# %challenges_current_challenge_place%
+
 # in seconds, set 0 to disable and use command
 interval: 20
 
@@ -85,6 +93,8 @@ messages:
     success_start_interval: "&7[&c&lES&7] L'interval des challenges a été lancé avec succès !"
     success_stop_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
   global:
+    none: "Aucun"
+    none2: "Aucune"
     second: "seconde"
     seconds: "secondes"
     minute: "minute"
@@ -97,7 +107,7 @@ messages:
       fadeInTick: 10
       fadeOutTick: 20
       title: "Défi !"
-      subtitle: "Vous avez {0} minutes pour : &a{1} !"
+      subtitle: "Vous avez {0} {1} pour : &a{2} !"
     countdown:
       title: "Défi !"
       subtitle: "Défi lancé dans {0} {1} !"
@@ -105,7 +115,7 @@ messages:
     message: "{0} : {1} - {2} {3} restantes !"
     countdown: "Défi lancé dans {0} {1} !"
   chat:
-    start_message: "&7[&c&lES&7] Vous avez {0} minutes pour : &a{1} !&7 Soyez le meilleur !"
+    start_message: "&7[&c&lES&7] Vous avez {0} {1} pour : &a{2} !&7 Soyez le meilleur !"
     no_player: "&7[&c&lES&7] Aucun joueur n'a fait le défi !"
     top:
       template: "- {0}, {1} score : {2}"
