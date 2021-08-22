@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -31,8 +30,7 @@ public class CacheManager implements Listener {
 		playersClassementCache = db.getAllPlayersCount(Bukkit.getServer().getOnlinePlayers());
 	}
 
-	public void updatePlayerCount(Player p, int addNumber) {
-		UUID uuid = p.getUniqueId();
+	public void updatePlayerCount(UUID uuid, int addNumber) {
 		int newCount = getPlayerCount(uuid) + addNumber;
 		db.updatePlayerCount(uuid, newCount);
 		playersClassementCache.put(uuid, newCount);

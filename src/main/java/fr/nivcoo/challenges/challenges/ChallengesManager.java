@@ -2,19 +2,23 @@ package fr.nivcoo.challenges.challenges;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
@@ -44,9 +48,9 @@ public class ChallengesManager {
 	private List<Challenge> challengesList;
 	private Challenge selectedChallenge;
 
-	private HashMap<Player, Integer> playersProgress;
+	private LinkedHashMap<UUID, Integer> playersProgress;
 	private Long startedTimestamp;
-	private HashMap<Location, Player> blacklistedBlockLocation;
+	private HashMap<Location, UUID> blacklistedBlockLocation;
 
 	private int interval;
 	private int timeout;
@@ -66,7 +70,7 @@ public class ChallengesManager {
 		playerNeeded = config.getInt("players_needed");
 		registerEvents();
 		registerChallenges();
-		playersProgress = new HashMap<>();
+		playersProgress = new LinkedHashMap<>();
 		blacklistedBlockLocation = new HashMap<>();
 		challengeStarted = false;
 		startChallengeInterval();
@@ -207,7 +211,7 @@ public class ChallengesManager {
 		actionBarIntervalThread = new Thread(() -> {
 			while (!Thread.interrupted()) {
 				try {
-					for (Player p : Bukkit.getOnlinePlayers()) {
+					for (Player p : Bukkit.getServer().getOnlinePlayers()) {
 						if (blacklistedWorld.contains(p.getWorld().getName()))
 							continue;
 						sendActionBarMessage(p);
@@ -245,7 +249,7 @@ public class ChallengesManager {
 		long number = getTimePair.getFirst();
 		String type = getTimePair.getSecond();
 		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
-				String.valueOf(getScoreOfPlayer(p)), String.valueOf(number), type);
+				String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type);
 		sendActionBarMessage(p, message);
 	}
 
@@ -264,15 +268,14 @@ public class ChallengesManager {
 		p.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
 	}
 
-	public int getScoreOfPlayer(Player p) {
-		Integer score = playersProgress.get(p);
+	public int getScoreOfPlayer(UUID uuid) {
+		Integer score = playersProgress.get(uuid);
 		return score == null ? 0 : score;
 	}
 
 	public void sendTop() {
 		if (getSelectedChallenge() == null)
 			return;
-		sortPlayersProgress();
 		String noPlayerMessage = config.getString("messages.chat.no_player");
 		List<String> keys = config.getKeys("rewards.top");
 		int place = 0;
@@ -280,18 +283,20 @@ public class ChallengesManager {
 		boolean sendTop = false;
 		List<String> commandsForAll = config.getStringList("rewards.for_all");
 		boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
-		Map<Player, Integer> filteredPlayersProgress = getPositifPlayersProgress();
-		Set<Player> filteredPlayers = filteredPlayersProgress.keySet();
-		for (Player player : filteredPlayersProgress.keySet()) {
+		Map<UUID, Integer> filteredPlayersProgress = getSortPlayersProgress();
+		Set<UUID> filteredPlayers = filteredPlayersProgress.keySet();
+		for (UUID uuid : filteredPlayersProgress.keySet()) {
+			OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
+			Player p = offlinePlayer.getPlayer();
 			place++;
-			int score = getScoreOfPlayer(player);
+			int score = getScoreOfPlayer(uuid);
 			int numberOfWinner = keys.size();
 			boolean outOfTop = place > numberOfWinner;
 			for (String c : commandsForAll) {
 				if (!outOfTop && giveForAllRewardToTop)
-					sendConsoleCommand(c, player);
-				if (outOfTop)
-					player.sendMessage(
+					sendConsoleCommand(c, offlinePlayer);
+				if (outOfTop && p != null)
+					p.sendMessage(
 							config.getString("messages.rewards.for_all", config.getString("rewards.for_all.message")));
 			}
 			if (outOfTop)
@@ -302,11 +307,12 @@ public class ChallengesManager {
 			List<String> commandsTop = config.getStringList(rewardsTopPath + ".commands");
 			String messageTop = config.getString(rewardsTopPath + ".message");
 			for (String c : commandsTop) {
-				sendConsoleCommand(c, player);
-				player.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
+				sendConsoleCommand(c, offlinePlayer);
+				if (p != null)
+					p.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
 			}
 			String templateMessage = config.getString("messages.chat.top.template", String.valueOf(place),
-					player.getName(), String.valueOf(score));
+					offlinePlayer.getName(), String.valueOf(score));
 
 			boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
 			String templatePointPath = "messages.chat.top.template_points.";
@@ -321,7 +327,7 @@ public class ChallengesManager {
 					type = points;
 				String pointMessage = config.getString(templatePointPath + "display", String.valueOf(addNumber), type);
 				templateMessage = templateMessage.replace("{3}", pointMessage);
-				challenges.getCacheManager().updatePlayerCount(player, addNumber);
+				challenges.getCacheManager().updatePlayerCount(uuid, addNumber);
 			} else {
 				templateMessage = templateMessage.replace("{3}", config.getString(templatePointPath + "default"));
 			}
@@ -353,9 +359,9 @@ public class ChallengesManager {
 
 	}
 
-	public void sendConsoleCommand(String command, Player p) {
+	public void sendConsoleCommand(String command, OfflinePlayer player) {
 		Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-				command.replaceAll("%player%", p.getName()));
+				command.replaceAll("%player%", player.getName()));
 	}
 
 	public void addScoreToPlayer(Types type, Player p, Location loc) {
@@ -373,19 +379,18 @@ public class ChallengesManager {
 
 		if (!selectedChallengeType.equals(type) || (loc != null && locationIsBlacklistedForPlayer(loc, p)))
 			return;
-		System.out.println(p.getName());
 		Sound sound = Sound.valueOf(config.getString("sound.add"));
 		setScoreToPlayer(p, 1);
 		p.playSound(p.getLocation(), sound, .4f, 1.7f);
 	}
 
 	public boolean locationIsBlacklistedForPlayer(Location loc, Player p) {
-		Player player = blacklistedBlockLocation.get(loc);
-		return player != null && player != p;
+		UUID player = blacklistedBlockLocation.get(loc);
+		return player != null && player != p.getUniqueId();
 	}
 
 	public void addLocationToBlacklist(Location loc, Player p) {
-		blacklistedBlockLocation.put(loc, p);
+		blacklistedBlockLocation.put(loc, p.getUniqueId());
 	}
 
 	public void removeScoreToPlayer(Player p) {
@@ -396,13 +401,13 @@ public class ChallengesManager {
 
 	public void setScoreToPlayer(Player p, int value) {
 
-		Integer score = playersProgress.get(p);
+		Integer score = playersProgress.get(p.getUniqueId());
 		if (score == null) {
-			playersProgress.put(p, value);
+			playersProgress.put(p.getUniqueId(), value);
 
 		} else {
 			int newScore = score + value;
-			playersProgress.put(p, newScore);
+			playersProgress.put(p.getUniqueId(), newScore);
 		}
 
 		sendActionBarMessage(p);
@@ -422,7 +427,7 @@ public class ChallengesManager {
 	}
 
 	public void clearProgress() {
-		playersProgress = new HashMap<>();
+		playersProgress = new LinkedHashMap<>();
 		blacklistedBlockLocation = new HashMap<>();
 		selectedChallenge = null;
 		startedTimestamp = null;
@@ -458,48 +463,50 @@ public class ChallengesManager {
 		return challengeStarted;
 	}
 
-	public void sortPlayersProgress() {
-
-		playersProgress = playersProgress.entrySet().stream().sorted(Entry.comparingByValue(Comparator.reverseOrder()))
+	public LinkedHashMap<UUID, Integer> getSortPlayersProgress() {
+		return playersProgress.entrySet().stream().filter(map -> map.getValue() > 0).sorted(Entry.comparingByValue(Comparator.reverseOrder()))
 				.collect(Collectors.toMap(Entry::getKey, Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
-
 	}
 
-	public Map<Player, Integer> getPositifPlayersProgress() {
-		return playersProgress.entrySet().stream().filter(map -> map.getValue() > 0)
-				.collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
+	public Entry<UUID, Integer> getPlayerProgressByPlace(int place) {
+		int i = 0;
+		Entry<UUID, Integer> playerProgress = null;
+		for (Entry<UUID, Integer> entry : getSortPlayersProgress().entrySet()) {
+			i++;
+			if (i == place) {
+				playerProgress = entry;
+				break;
+			}
+
+		}
+		return playerProgress;
 	}
 
 	public String getPlayerNameProgressByPlace(int place) {
-		sortPlayersProgress();
-		List<Player> indexes = new ArrayList<>(getPositifPlayersProgress().keySet());
-		Player get = null;
-		int index = place - 1;
-		if (place <= indexes.size())
-			get = indexes.get(index);
-		if (get == null)
+		Entry<UUID, Integer> playerProgress = getPlayerProgressByPlace(place);
+
+		if (playerProgress == null)
 			return config.getString("messages.global.none");
-		return get.getName();
+		else {
+			return Bukkit.getOfflinePlayer(playerProgress.getKey()).getName();
+		}
+
 	}
 
 	public String getPlayerCountProgressByPlace(int place) {
-		sortPlayersProgress();
-		List<Integer> indexes = new ArrayList<>(getPositifPlayersProgress().values());
-		Integer get = null;
-		int index = place - 1;
-		if (place <= indexes.size())
-			get = indexes.get(index);
-		if (get == null)
+		Entry<UUID, Integer> playerProgress = getPlayerProgressByPlace(place);
+
+		if (playerProgress == null)
 			return "0";
-		return String.valueOf(get);
+		else
+			return String.valueOf(playerProgress.getValue());
 	}
 
 	public int getPlaceOfPlayer(Player player) {
-		sortPlayersProgress();
 		int place = 0;
-		for (Player p : getPositifPlayersProgress().keySet()) {
+		for (UUID p : getSortPlayersProgress().keySet()) {
 			place++;
-			if (player.equals(p))
+			if (player.getUniqueId().equals(p))
 				return place;
 		}
 		return 0;

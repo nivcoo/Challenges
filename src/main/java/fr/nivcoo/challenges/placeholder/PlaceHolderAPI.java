@@ -51,7 +51,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 			Player p = player.getPlayer();
 			if (p == null)
 				return "0";
-			return String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p));
+			return String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()));
 		} else if (identifier.equals("current_challenge_place")) {
 			Player p = player.getPlayer();
 			String noneMessage = config.getString("messages.placeholders.current_challenge_place.none");
@@ -72,8 +72,8 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 			String countdownPath = "messages.placeholders.current_challenge_countdown.";
 			if (countdown == null)
 				return config.getString(countdownPath + "stop");
-			return config.getString(countdownPath + "started",
-					String.valueOf(countdown.getFirst()), countdown.getSecond());
+			return config.getString(countdownPath + "started", String.valueOf(countdown.getFirst()),
+					countdown.getSecond());
 		}
 
 		return null;
