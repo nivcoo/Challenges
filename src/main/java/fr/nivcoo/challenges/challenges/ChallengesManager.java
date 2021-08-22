@@ -270,6 +270,8 @@ public class ChallengesManager {
 	}
 
 	public void sendTop() {
+		if (getSelectedChallenge() == null)
+			return;
 		sortPlayersProgress();
 		String noPlayerMessage = config.getString("messages.chat.no_player");
 		List<String> keys = config.getKeys("rewards.top");
