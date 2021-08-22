@@ -29,11 +29,8 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 		Material oldMaterial = e.getBlockReplacedState().getType();
 		Material newMaterial = newBlock.getType();
 
-		if (oldMaterial.equals(newMaterial))
-			return;
-
 		boolean allow = selectedChallenge.isInMaterialsRequirement(newMaterial, (int) newBlock.getData());
-		if (allow)
+		if (allow && !oldMaterial.equals(newMaterial))
 			addScoreToPlayer(p, newBlock.getLocation());
 
 	}
