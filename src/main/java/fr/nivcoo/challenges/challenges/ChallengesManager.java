@@ -453,8 +453,12 @@ public class ChallengesManager {
 	}
 
 	public void cancelDelayedTask() {
-
 		Bukkit.getScheduler().cancelTask(delayedCancelTaskID);
+	}
+
+	public void disablePlugin() {
+		finishChallenge();
+		stopChallengeTasks();
 	}
 
 	public boolean isChallengeStarted() {
@@ -462,7 +466,8 @@ public class ChallengesManager {
 	}
 
 	public LinkedHashMap<UUID, Integer> getSortPlayersProgress() {
-		return playersProgress.entrySet().stream().filter(map -> map.getValue() > 0).sorted(Entry.comparingByValue(Comparator.reverseOrder()))
+		return playersProgress.entrySet().stream().filter(map -> map.getValue() > 0)
+				.sorted(Entry.comparingByValue(Comparator.reverseOrder()))
 				.collect(Collectors.toMap(Entry::getKey, Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
 	}
 

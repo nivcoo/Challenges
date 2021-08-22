@@ -62,7 +62,7 @@ public class Challenges extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
-		getChallengesManager().stopChallengeTasks();
+		getChallengesManager().disablePlugin();
 	}
 
 	public void reload() {
