@@ -1,5 +1,6 @@
 package fr.nivcoo.challenges.challenges.challenges.types;
 
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,12 +23,18 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 		if (!checkRequirements())
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
-		Block b = e.getBlock();
+		Block newBlock = e.getBlock();
 		Player p = e.getPlayer();
 
-		boolean allow = selectedChallenge.isInMaterialsRequirement(b.getType(), (int) b.getData());
+		Material oldMaterial = e.getBlockReplacedState().getType();
+		Material newMaterial = newBlock.getType();
+
+		if (oldMaterial.equals(newMaterial))
+			return;
+
+		boolean allow = selectedChallenge.isInMaterialsRequirement(newMaterial, (int) newBlock.getData());
 		if (allow)
-			addScoreToPlayer(p, b.getLocation());
+			addScoreToPlayer(p, newBlock.getLocation());
 
 	}
 
