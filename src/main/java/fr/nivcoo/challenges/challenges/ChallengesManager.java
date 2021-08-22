@@ -292,13 +292,7 @@ public class ChallengesManager {
 			if (outOfTop)
 				continue;
 			sendTop = true;
-			String templateMessage = config.getString("messages.chat.top.template", String.valueOf(place),
-					player.getName(), String.valueOf(score));
 
-			globalTemplateMessage += templateMessage;
-
-			if (place + 1 <= numberOfWinner && filteredPlayers.size() > place)
-				globalTemplateMessage += "§r \n";
 			String rewardsTopPath = "rewards.top." + place;
 			List<String> commandsTop = config.getStringList(rewardsTopPath + ".commands");
 			String messageTop = config.getString(rewardsTopPath + ".message");
@@ -306,14 +300,31 @@ public class ChallengesManager {
 				sendConsoleCommand(c, player);
 				player.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
 			}
+			String templateMessage = config.getString("messages.chat.top.template", String.valueOf(place),
+					player.getName(), String.valueOf(score));
 
 			boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+			String templatePointPath = "messages.chat.top.template_points.";
 			if (addAllTop || place == 1) {
 				int addNumber = 1;
 				if (addAllTop)
 					addNumber = numberOfWinner - place + 1;
+				String point = config.getString(templatePointPath + "point");
+				String points = config.getString(templatePointPath + "points");
+				String type = point;
+				if (addNumber > 1)
+					type = points;
+				String pointMessage = config.getString(templatePointPath + "display", String.valueOf(addNumber), type);
+				templateMessage = templateMessage.replace("{3}", pointMessage);
 				challenges.getCacheManager().updatePlayerCount(player, addNumber);
+			} else {
+				templateMessage = templateMessage.replace("{3}", config.getString(templatePointPath + "default"));
 			}
+
+			globalTemplateMessage += templateMessage;
+
+			if (place + 1 <= numberOfWinner && filteredPlayers.size() > place)
+				globalTemplateMessage += "§r \n";
 
 		}
 		List<String> globalMessagesList = config.getStringList("messages.chat.top.message");
