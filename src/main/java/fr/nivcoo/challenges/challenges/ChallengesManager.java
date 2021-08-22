@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
@@ -45,6 +46,7 @@ public class ChallengesManager {
 
 	private HashMap<Player, Integer> playersProgress;
 	private Long startedTimestamp;
+	private List<Location> blacklistedBlockLocation;
 
 	private int interval;
 	private int timeout;
@@ -65,6 +67,7 @@ public class ChallengesManager {
 		registerEvents();
 		registerChallenges();
 		playersProgress = new HashMap<>();
+		blacklistedBlockLocation = new ArrayList<>();
 		challengeStarted = false;
 		startChallengeInterval();
 	}
@@ -321,6 +324,8 @@ public class ChallengesManager {
 				templateMessage = templateMessage.replace("{3}", config.getString(templatePointPath + "default"));
 			}
 
+			templateMessage = templateMessage.replace("{4}", messageTop);
+
 			globalTemplateMessage += templateMessage;
 
 			if (place + 1 <= numberOfWinner && filteredPlayers.size() > place)
@@ -331,7 +336,8 @@ public class ChallengesManager {
 		String globalMessage = "";
 		int i = 0;
 		for (String m : globalMessagesList) {
-			globalMessage += m.replace("{0}", getSelectedChallenge().getMessage()).replace("{1}", globalTemplateMessage);
+			globalMessage += m.replace("{0}", getSelectedChallenge().getMessage()).replace("{1}",
+					globalTemplateMessage);
 			if (globalMessagesList.size() - 1 != i)
 				globalMessage += "§r \n";
 			i++;
@@ -350,21 +356,32 @@ public class ChallengesManager {
 				command.replaceAll("%player%", p.getName()));
 	}
 
-	public void addScoreToPlayer(Types type, Player p) {
+	public void addScoreToPlayer(Types type, Player p, Location loc) {
 		if (selectedChallenge == null)
 			return;
 
 		if (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
 				|| type.equals(Types.BLOCK_BREAK) && selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE)) {
+			if (loc != null)
+				addLocationToBlacklist(loc);
 			removeScoreToPlayer(p);
 			return;
 		}
 
-		if (!selectedChallenge.getChallengeType().equals(type))
+		if (!selectedChallenge.getChallengeType().equals(type) || (loc != null && locationIsBlacklisted(loc)))
 			return;
 		Sound sound = Sound.valueOf(config.getString("sound.add"));
 		setScoreToPlayer(p, 1);
 		p.playSound(p.getLocation(), sound, .4f, 1.7f);
+	}
+
+	public boolean locationIsBlacklisted(Location loc) {
+		return blacklistedBlockLocation.contains(loc);
+	}
+
+	public void addLocationToBlacklist(Location loc) {
+		if (!blacklistedBlockLocation.contains(loc))
+			blacklistedBlockLocation.add(loc);
 	}
 
 	public void removeScoreToPlayer(Player p) {
@@ -402,6 +419,7 @@ public class ChallengesManager {
 
 	public void clearProgress() {
 		playersProgress = new HashMap<>();
+		blacklistedBlockLocation = new ArrayList<>();
 		selectedChallenge = null;
 		startedTimestamp = null;
 		challengeStarted = false;

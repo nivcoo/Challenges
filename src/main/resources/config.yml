@@ -130,7 +130,7 @@ messages:
     start_message: "&7[&c&lES&7] Vous avez {0} {1} pour : &a{2} !&7 Soyez le meilleur !"
     no_player: "&7[&c&lES&7] Aucun joueur n'a fait le défi !"
     top:
-      template: "&f&l| &bN°{0} &e{1} &7- &6{2} Points {3}"
+      template: "&f&l| &bN°{0} &e{1} &7- &6{2} &a{3} + &b{4}"
       template_points:
         point: "Point"
         points: "Points"

@@ -1,16 +1,22 @@
 package fr.nivcoo.challenges.challenges.challenges;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.Challenge;
+
 public class ChallengeType {
 	protected Types type;
 
 	private Challenges challenge = Challenges.get();
 
 	protected void addScoreToPlayer(Player p) {
-		challenge.getChallengesManager().addScoreToPlayer(type, p);
+		addScoreToPlayer(p, null);
+	}
+
+	protected void addScoreToPlayer(Player p, Location location) {
+		challenge.getChallengesManager().addScoreToPlayer(type, p, location);
 	}
 
 	protected boolean checkRequirements() {
