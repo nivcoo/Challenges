@@ -27,7 +27,7 @@ public class BlockBreakType extends ChallengeType implements Listener {
 
 		boolean allow = selectedChallenge.isInMaterialsRequirement(b.getType(), (int) b.getData());
 		if (allow)
-			addScoreToPlayer(p);
+			addScoreToPlayer(p, b.getLocation());
 
 	}
 

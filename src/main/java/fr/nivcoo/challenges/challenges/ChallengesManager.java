@@ -359,16 +359,17 @@ public class ChallengesManager {
 	public void addScoreToPlayer(Types type, Player p, Location loc) {
 		if (selectedChallenge == null)
 			return;
+		Types selectedChallengeType = selectedChallenge.getChallengeType();
 
-		if (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
-				|| type.equals(Types.BLOCK_BREAK) && selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE)) {
-			if (loc != null)
+		if (selectedChallengeType.equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
+				|| type.equals(Types.BLOCK_BREAK) && selectedChallengeType.equals(Types.BLOCK_PLACE)) {
+			if (loc != null && selectedChallengeType.equals(Types.BLOCK_BREAK))
 				addLocationToBlacklist(loc);
 			removeScoreToPlayer(p);
 			return;
 		}
 
-		if (!selectedChallenge.getChallengeType().equals(type) || (loc != null && locationIsBlacklisted(loc)))
+		if (!selectedChallengeType.equals(type) || (loc != null && locationIsBlacklisted(loc)))
 			return;
 		Sound sound = Sound.valueOf(config.getString("sound.add"));
 		setScoreToPlayer(p, 1);
