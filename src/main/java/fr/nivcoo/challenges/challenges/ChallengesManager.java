@@ -331,7 +331,7 @@ public class ChallengesManager {
 		String globalMessage = "";
 		int i = 0;
 		for (String m : globalMessagesList) {
-			globalMessage += m.replace("{0}", globalTemplateMessage);
+			globalMessage += m.replace("{0}", getSelectedChallenge().getMessage()).replace("{1}", globalTemplateMessage);
 			if (globalMessagesList.size() - 1 != i)
 				globalMessage += "§r \n";
 			i++;

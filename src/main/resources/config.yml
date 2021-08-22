@@ -137,8 +137,8 @@ messages:
         display: "(+{0} {1})"
         default: ""
       message:
-        - "test"
-        - "{0}"
+        - "test {0}"
+        - "{1}"
   rewards:
     for_all: "&7[&c&lES&7] Vous avez participé au défi, vous gagnez {0} !"
     top: "&7[&c&lES&7] Vous avez participé au défi, et vous êtes &aTOP {0} &7! Vous gagnez : {1} !"
