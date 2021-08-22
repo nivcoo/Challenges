@@ -297,7 +297,7 @@ public class ChallengesManager {
 			globalTemplateMessage += templateMessage;
 
 			if (place + 1 <= keys.size())
-				globalTemplateMessage += " \n";
+				globalTemplateMessage += "§r \n";
 			String rewardsTopPath = "rewards.top." + place;
 			List<String> commandsTop = config.getStringList(rewardsTopPath + ".commands");
 			String messageTop = config.getString(rewardsTopPath + ".message");
@@ -321,7 +321,7 @@ public class ChallengesManager {
 		for (String m : globalMessagesList) {
 			globalMessage += m.replace("{0}", globalTemplateMessage);
 			if (globalMessagesList.size() - 1 != i)
-				globalMessage += " \n";
+				globalMessage += "§r \n";
 			i++;
 		}
 
