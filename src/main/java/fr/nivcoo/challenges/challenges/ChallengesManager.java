@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -274,13 +275,13 @@ public class ChallengesManager {
 		boolean sendTop = false;
 		List<String> commandsForAll = config.getStringList("rewards.for_all");
 		boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
-		Map<Player, Integer> filteredPlayersProgress = playersProgress.entrySet().stream()
-				.filter(map -> map.getValue() > 0)
-				.collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
+		Map<Player, Integer> filteredPlayersProgress = getPositifPlayersProgress();
+		Set<Player> filteredPlayers = filteredPlayersProgress.keySet();
 		for (Player player : filteredPlayersProgress.keySet()) {
 			place++;
 			int score = getScoreOfPlayer(player);
-			boolean outOfTop = place > keys.size();
+			int numberOfWinner = keys.size();
+			boolean outOfTop = place > numberOfWinner;
 			for (String c : commandsForAll) {
 				if (!outOfTop && giveForAllRewardToTop)
 					sendConsoleCommand(c, player);
@@ -296,7 +297,7 @@ public class ChallengesManager {
 
 			globalTemplateMessage += templateMessage;
 
-			if (place + 1 <= keys.size())
+			if (place + 1 <= numberOfWinner && filteredPlayers.size() > place)
 				globalTemplateMessage += "§r \n";
 			String rewardsTopPath = "rewards.top." + place;
 			List<String> commandsTop = config.getStringList(rewardsTopPath + ".commands");
@@ -310,7 +311,7 @@ public class ChallengesManager {
 			if (addAllTop || place == 1) {
 				int addNumber = 1;
 				if (addAllTop)
-					addNumber = keys.size() - place + 1;
+					addNumber = numberOfWinner - place + 1;
 				challenges.getCacheManager().updatePlayerCount(player, addNumber);
 			}
 
@@ -431,9 +432,14 @@ public class ChallengesManager {
 
 	}
 
+	public Map<Player, Integer> getPositifPlayersProgress() {
+		return playersProgress.entrySet().stream().filter(map -> map.getValue() > 0)
+				.collect(Collectors.toMap(map -> map.getKey(), map -> map.getValue()));
+	}
+
 	public String getPlayerNameProgressByPlace(int place) {
 		sortPlayersProgress();
-		List<Player> indexes = new ArrayList<>(playersProgress.keySet());
+		List<Player> indexes = new ArrayList<>(getPositifPlayersProgress().keySet());
 		Player get = null;
 		int index = place - 1;
 		if (place <= indexes.size())
@@ -445,7 +451,7 @@ public class ChallengesManager {
 
 	public String getPlayerCountProgressByPlace(int place) {
 		sortPlayersProgress();
-		List<Integer> indexes = new ArrayList<>(playersProgress.values());
+		List<Integer> indexes = new ArrayList<>(getPositifPlayersProgress().values());
 		Integer get = null;
 		int index = place - 1;
 		if (place <= indexes.size())
@@ -458,7 +464,7 @@ public class ChallengesManager {
 	public int getPlaceOfPlayer(Player player) {
 		sortPlayersProgress();
 		int place = 0;
-		for (Player p : playersProgress.keySet()) {
+		for (Player p : getPositifPlayersProgress().keySet()) {
 			place++;
 			if (player.equals(p))
 				return place;
