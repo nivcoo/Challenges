@@ -46,7 +46,7 @@ public class ChallengesManager {
 
 	private HashMap<Player, Integer> playersProgress;
 	private Long startedTimestamp;
-	private List<Location> blacklistedBlockLocation;
+	private HashMap<Location, Player> blacklistedBlockLocation;
 
 	private int interval;
 	private int timeout;
@@ -67,7 +67,7 @@ public class ChallengesManager {
 		registerEvents();
 		registerChallenges();
 		playersProgress = new HashMap<>();
-		blacklistedBlockLocation = new ArrayList<>();
+		blacklistedBlockLocation = new HashMap<>();
 		challengeStarted = false;
 		startChallengeInterval();
 	}
@@ -364,25 +364,26 @@ public class ChallengesManager {
 		if (selectedChallengeType.equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
 				|| type.equals(Types.BLOCK_BREAK) && selectedChallengeType.equals(Types.BLOCK_PLACE)) {
 			if (loc != null && selectedChallengeType.equals(Types.BLOCK_BREAK))
-				addLocationToBlacklist(loc);
+				addLocationToBlacklist(loc, p);
 			removeScoreToPlayer(p);
 			return;
 		}
 
-		if (!selectedChallengeType.equals(type) || (loc != null && locationIsBlacklisted(loc)))
+		if (!selectedChallengeType.equals(type) || (loc != null && locationIsBlacklistedForPlayer(loc, p)))
 			return;
+		System.out.println(p.getName());
 		Sound sound = Sound.valueOf(config.getString("sound.add"));
 		setScoreToPlayer(p, 1);
 		p.playSound(p.getLocation(), sound, .4f, 1.7f);
 	}
 
-	public boolean locationIsBlacklisted(Location loc) {
-		return blacklistedBlockLocation.contains(loc);
+	public boolean locationIsBlacklistedForPlayer(Location loc, Player p) {
+		Player player = blacklistedBlockLocation.get(loc);
+		return player != null && player != p;
 	}
 
-	public void addLocationToBlacklist(Location loc) {
-		if (!blacklistedBlockLocation.contains(loc))
-			blacklistedBlockLocation.add(loc);
+	public void addLocationToBlacklist(Location loc, Player p) {
+		blacklistedBlockLocation.put(loc, p);
 	}
 
 	public void removeScoreToPlayer(Player p) {
@@ -420,7 +421,7 @@ public class ChallengesManager {
 
 	public void clearProgress() {
 		playersProgress = new HashMap<>();
-		blacklistedBlockLocation = new ArrayList<>();
+		blacklistedBlockLocation = new HashMap<>();
 		selectedChallenge = null;
 		startedTimestamp = null;
 		challengeStarted = false;
