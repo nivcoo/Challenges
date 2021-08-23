@@ -1,5 +1,6 @@
 package fr.nivcoo.challenges.command.commands;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,6 +52,11 @@ public class StartCMD implements CCommand {
 		challenges.getChallengesManager().startChallenge();
 		sender.sendMessage(config.getString("messages.commands.success_start"));
 		
+	}
+
+	@Override
+	public List<String> tabComplete(Challenges plugin, CommandSender sender, String[] args) {
+		return new ArrayList<>();
 	}
 
 }

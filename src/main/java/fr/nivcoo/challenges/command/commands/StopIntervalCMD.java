@@ -1,5 +1,6 @@
 package fr.nivcoo.challenges.command.commands;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -50,6 +51,11 @@ public class StopIntervalCMD implements CCommand {
 		Config config = challenges.getConfiguration();
 		challenges.getChallengesManager().stopChallengeTasks();
 		sender.sendMessage(config.getString("messages.commands.success_stop_interval"));
+	}
+
+	@Override
+	public List<String> tabComplete(Challenges plugin, CommandSender sender, String[] args) {
+		return new ArrayList<>();
 	}
 
 }

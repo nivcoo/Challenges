@@ -3,14 +3,14 @@ package fr.nivcoo.challenges.utils.commands;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import fr.nivcoo.challenges.utils.Config;
 
-public class CommandManager implements CommandExecutor {
+public class CommandManager implements TabExecutor  {
 	JavaPlugin plugin;
 	private ArrayList<Command> commands;
 	String unknownMessage = "Unknown command.";
@@ -99,6 +99,33 @@ public class CommandManager implements CommandExecutor {
 			sender.sendMessage(noPermission);
 
 		return false;
+	}
+
+	@Override
+	public List<String> onTabComplete(CommandSender sender, org.bukkit.command.Command cmd, String alias,
+			String[] args) {
+		if(args.length > 0){
+			Command command = getCommand(args[0]);
+            if(command != null){
+                return command.getPermission() != null && !sender.hasPermission(command.getPermission()) ?
+                        new ArrayList<>() : command.tabComplete(plugin, sender, args);
+            }
+        }
+
+        List<String> list = new ArrayList<>();
+
+        for(Command subCommand : getCommands()) {
+            if (subCommand.getPermission() == null || sender.hasPermission(subCommand.getPermission())) {
+                for (String aliases : subCommand.getAliases()) {
+                    if (aliases.contains(args[0].toLowerCase())) {
+                        list.add(aliases);
+                    }
+                }
+            }
+        }
+
+        return list;
+    
 	}
 
 }
