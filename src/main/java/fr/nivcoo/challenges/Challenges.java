@@ -9,10 +9,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import fr.nivcoo.challenges.cache.CacheManager;
 import fr.nivcoo.challenges.challenges.ChallengesManager;
-import fr.nivcoo.challenges.command.Commands;
+import fr.nivcoo.challenges.command.commands.ReloadCMD;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
 import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.Database;
+import fr.nivcoo.challenges.utils.commands.CommandManager;
 import fr.nivcoo.challenges.utils.time.TimeUtil;
 
 public class Challenges extends JavaPlugin {
@@ -23,7 +24,7 @@ public class Challenges extends JavaPlugin {
 	private Database db;
 	private CacheManager cacheManager;
 	private TimeUtil timeUtil;
-	private Commands commands;
+	private CommandManager commandManager;
 
 	@Override
 	public void onEnable() {
@@ -50,13 +51,16 @@ public class Challenges extends JavaPlugin {
 		loadCacheManager();
 
 		challengesManager = new ChallengesManager();
-		commands = new Commands();
+		// commands = new Commands();
 
 		if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
 			new PlaceHolderAPI().register();
 		}
 
-		getCommand("clgs").setExecutor(commands);
+		commandManager = new CommandManager(this, config, "clgs", "challenges.commands");
+		commandManager.addCommand(new ReloadCMD());
+
+		// getCommand("clgs").setExecutor(commands);
 
 	}
 
@@ -103,6 +107,10 @@ public class Challenges extends JavaPlugin {
 
 	public TimeUtil getTimeUtil() {
 		return timeUtil;
+	}
+
+	public CommandManager getCommandManager() {
+		return commandManager;
 	}
 
 	public static Challenges get() {

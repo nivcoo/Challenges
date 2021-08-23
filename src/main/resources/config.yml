@@ -87,6 +87,7 @@ messages:
     current_challenge_place:
       none: "&f??"
   commands:
+    incorrect_usage: "&fCorrect Usage : {0}"
     no_permission: "&fCommande inconnue."
     help:
       - "&7&m------------------&8[&6Help Panel&8]&7&m------------------"
