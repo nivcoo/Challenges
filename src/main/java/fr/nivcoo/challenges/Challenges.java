@@ -9,7 +9,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import fr.nivcoo.challenges.cache.CacheManager;
 import fr.nivcoo.challenges.challenges.ChallengesManager;
+import fr.nivcoo.challenges.command.commands.DeleteDatasCMD;
+import fr.nivcoo.challenges.command.commands.EndCMD;
 import fr.nivcoo.challenges.command.commands.ReloadCMD;
+import fr.nivcoo.challenges.command.commands.StartCMD;
+import fr.nivcoo.challenges.command.commands.StartIntervalCMD;
+import fr.nivcoo.challenges.command.commands.StopCMD;
+import fr.nivcoo.challenges.command.commands.StopIntervalCMD;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
 import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.Database;
@@ -51,16 +57,19 @@ public class Challenges extends JavaPlugin {
 		loadCacheManager();
 
 		challengesManager = new ChallengesManager();
-		// commands = new Commands();
 
 		if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
 			new PlaceHolderAPI().register();
 		}
 
 		commandManager = new CommandManager(this, config, "clgs", "challenges.commands");
+		commandManager.addCommand(new StartCMD());
+		commandManager.addCommand(new StopCMD());
+		commandManager.addCommand(new EndCMD());
+		commandManager.addCommand(new StartIntervalCMD());
+		commandManager.addCommand(new StopIntervalCMD());
+		commandManager.addCommand(new DeleteDatasCMD());
 		commandManager.addCommand(new ReloadCMD());
-
-		// getCommand("clgs").setExecutor(commands);
 
 	}
 

@@ -95,7 +95,8 @@ public class CommandManager implements CommandExecutor {
 				return false;
 			}
 			command.execute(plugin, sender, args);
-		}
+		} else
+			sender.sendMessage(noPermission);
 
 		return false;
 	}
