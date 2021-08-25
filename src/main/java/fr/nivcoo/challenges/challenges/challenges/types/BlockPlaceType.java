@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 
@@ -18,9 +19,9 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 	}
 
 	@SuppressWarnings("deprecation")
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onBlockPlaceEvent(BlockPlaceEvent e) {
-		if (!checkRequirements())
+		if (e.isCancelled() || !checkRequirements())
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
 		Block newBlock = e.getBlock();

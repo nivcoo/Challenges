@@ -3,6 +3,7 @@ package fr.nivcoo.challenges.challenges.challenges.types;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 
@@ -17,9 +18,9 @@ public class BlockBreakType extends ChallengeType implements Listener {
 	}
 
 	@SuppressWarnings("deprecation")
-	@EventHandler
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onBlockBreakEvent(BlockBreakEvent e) {
-		if (!checkRequirements())
+		if (e.isCancelled() || !checkRequirements())
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
 		Block b = e.getBlock();
