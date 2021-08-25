@@ -12,11 +12,23 @@ public class ChallengeType {
 	private Challenges challenge = Challenges.get();
 
 	protected void addScoreToPlayer(Player p) {
-		addScoreToPlayer(p, null);
+		editScoreToPlayer(p, null, false);
 	}
 
 	protected void addScoreToPlayer(Player p, Location location) {
-		challenge.getChallengesManager().addScoreToPlayer(type, p, location);
+		editScoreToPlayer(p, location, false);
+	}
+
+	protected void removeScoreToPlayer(Player p) {
+		editScoreToPlayer(p, null, true);
+	}
+
+	protected void removeScoreToPlayer(Player p, Location location) {
+		editScoreToPlayer(p, location, true);
+	}
+
+	protected void editScoreToPlayer(Player p, Location location, boolean remove) {
+		challenge.getChallengesManager().editScoreToPlayer(type, p, location, remove);
 	}
 
 	protected boolean checkRequirements() {

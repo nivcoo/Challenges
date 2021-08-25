@@ -2,7 +2,7 @@ name: Challenges
 version: 1.0.0
 author: nivcoo
 main: fr.nivcoo.challenges.Challenges
-softdepend: [PlaceholderAPI]
+softdepend: [PlaceholderAPI, WildTools]
 commands:
   clgs:
     description: Challenges Command
