@@ -23,12 +23,13 @@ import org.bukkit.event.Listener;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.challenges.Types;
-import fr.nivcoo.challenges.challenges.challenges.types.BlockBreakType;
-import fr.nivcoo.challenges.challenges.challenges.types.BlockPlaceType;
-import fr.nivcoo.challenges.challenges.challenges.types.ConsumeType;
-import fr.nivcoo.challenges.challenges.challenges.types.EnchantAllType;
-import fr.nivcoo.challenges.challenges.challenges.types.EntityDeathType;
-import fr.nivcoo.challenges.challenges.challenges.types.FishingType;
+import fr.nivcoo.challenges.challenges.challenges.types.external.wildtools.WildToolsBuilderType;
+import fr.nivcoo.challenges.challenges.challenges.types.internal.BlockBreakType;
+import fr.nivcoo.challenges.challenges.challenges.types.internal.BlockPlaceType;
+import fr.nivcoo.challenges.challenges.challenges.types.internal.ConsumeType;
+import fr.nivcoo.challenges.challenges.challenges.types.internal.EnchantAllType;
+import fr.nivcoo.challenges.challenges.challenges.types.internal.EntityDeathType;
+import fr.nivcoo.challenges.challenges.challenges.types.internal.FishingType;
 import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.time.TimePair;
 import net.md_5.bungee.api.ChatMessageType;
@@ -81,6 +82,9 @@ public class ChallengesManager {
 		registerEvent(new FishingType());
 		registerEvent(new EnchantAllType());
 		registerEvent(new ConsumeType());
+
+		if (Bukkit.getPluginManager().isPluginEnabled("WildTools"))
+			registerEvent(new WildToolsBuilderType());
 	}
 
 	public void registerEvent(Listener type) {

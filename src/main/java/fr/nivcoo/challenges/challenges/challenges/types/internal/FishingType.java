@@ -1,4 +1,4 @@
-package fr.nivcoo.challenges.challenges.challenges.types;
+package fr.nivcoo.challenges.challenges.challenges.types.internal;
 
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
