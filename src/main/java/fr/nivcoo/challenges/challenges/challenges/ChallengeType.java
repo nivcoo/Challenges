@@ -11,10 +11,6 @@ public class ChallengeType {
 
 	private Challenges challenge = Challenges.get();
 
-	protected Types getType() {
-		return type;
-	}
-
 	protected void addScoreToPlayer(Player p) {
 		editScoreToPlayer(p, null, false);
 	}
@@ -32,12 +28,11 @@ public class ChallengeType {
 	}
 
 	protected void editScoreToPlayer(Player p, Location location, boolean remove) {
-		challenge.getChallengesManager().editScoreToPlayer(getType(), p, location, remove);
+		challenge.getChallengesManager().editScoreToPlayer(type, p, location, remove);
 	}
 
 	protected boolean checkRequirements() {
 		Challenge selectedChallenge = getSeletedChallenge();
-		Types type = getType();
 
 		boolean correctType = selectedChallenge != null && (selectedChallenge.getChallengeType().equals(type)
 				|| (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
