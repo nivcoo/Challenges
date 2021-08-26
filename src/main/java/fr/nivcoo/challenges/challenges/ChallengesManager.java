@@ -250,10 +250,19 @@ public class ChallengesManager {
 			return;
 		long number = getTimePair.getFirst();
 		String type = getTimePair.getSecond();
-		if(number < 0)
+		if (number < 0) {
 			finishChallenge();
-		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
+			return;
+		}
+		String runningPath = "messages.action_bar.running.";
+		String message = config.getString(runningPath + "message", selectedChallenge.getMessage(),
 				String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type);
+		int place = getPlaceOfPlayer(p);
+		if (place == 0)
+			message = message.replace("{4}", "");
+		else {
+			message = message.replace("{4}", config.getString(runningPath + "place", String.valueOf(place)));
+		}
 		sendActionBarMessage(p, message);
 	}
 

@@ -125,7 +125,9 @@ messages:
       title: "Défi !"
       subtitle: "Défi lancé dans {0} {1} !"
   action_bar:
-    message: "{0} : {1} - {2} {3} restantes !"
+    running:
+      message: "&a&n{0} :&b&l {1} &7&l| &e&nTemps restant :&6&l {2} {3} {4}"
+      place: "&7&l| &a&nPlace :&b&l {0}"
     countdown: "Défi lancé dans {0} {1} !"
   chat:
     start_message: "&7[&c&lES&7] Vous avez {0} {1} pour : &a{2} !&7 Soyez le meilleur !"
