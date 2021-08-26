@@ -250,6 +250,8 @@ public class ChallengesManager {
 			return;
 		long number = getTimePair.getFirst();
 		String type = getTimePair.getSecond();
+		if(number < 0)
+			finishChallenge();
 		String message = config.getString("messages.action_bar.message", selectedChallenge.getMessage(),
 				String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type);
 		sendActionBarMessage(p, message);
