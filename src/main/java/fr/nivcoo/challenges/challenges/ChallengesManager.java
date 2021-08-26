@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -43,7 +45,7 @@ public class ChallengesManager {
 	private Thread challengeThread;
 	private Thread challengeIntervalThread;
 	private Thread actionBarIntervalThread;
-	private int delayedCancelTaskID;
+	private Timer delayedCancelTaskTimer;
 	private List<Challenge> challengesList;
 	private Challenge selectedChallenge;
 
@@ -145,6 +147,7 @@ public class ChallengesManager {
 		String countdownMessageActionBar = config.getString("messages.action_bar.countdown");
 		String countdownMessageTitle = config.getString("messages.title.countdown.title");
 		String countdownMessageSubtitle = config.getString("messages.title.countdown.subtitle");
+		String threadName = "Challenges Start Thread";
 		challengeThread = new Thread(() -> {
 			try {
 
@@ -187,20 +190,27 @@ public class ChallengesManager {
 				Date date = new Date();
 				startedTimestamp = date.getTime();
 				startActionBarInterval();
-				delayedCancelTaskID = Bukkit.getScheduler().scheduleSyncDelayedTask(challenges, new Runnable() {
-					@Override
-					public void run() {
-						finishChallenge();
-					}
-				}, 20 * timeout);
+
+				startFinishTimer(threadName, timeout);
+
 			} catch (InterruptedException ex) {
 				challengeStarted = false;
 				return;
 			}
 
-		}, "Challenges Start Thread");
+		}, threadName);
 		challengeThread.start();
 
+	}
+
+	public void startFinishTimer(String threadName, int timeout) {
+		delayedCancelTaskTimer = new Timer(threadName);
+		TimerTask task = new TimerTask() {
+			public void run() {
+				finishChallenge();
+			}
+		};
+		delayedCancelTaskTimer.schedule(task, 1000L * timeout);
 	}
 
 	public void finishChallenge() {
@@ -474,7 +484,8 @@ public class ChallengesManager {
 	}
 
 	public void cancelDelayedTask() {
-		Bukkit.getScheduler().cancelTask(delayedCancelTaskID);
+		if (delayedCancelTaskTimer != null)
+			delayedCancelTaskTimer.cancel();
 	}
 
 	public void disablePlugin() {
