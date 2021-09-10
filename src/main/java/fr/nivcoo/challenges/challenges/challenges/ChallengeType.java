@@ -8,8 +8,10 @@ import fr.nivcoo.challenges.challenges.Challenge;
 
 public class ChallengeType {
 	protected Types type;
+	
+	protected String blacklistMeta = "challenges_blacklist";
 
-	private Challenges challenge = Challenges.get();
+	protected Challenges challenges = Challenges.get();
 
 	protected void addScoreToPlayer(Player p) {
 		editScoreToPlayer(p, null, false);
@@ -28,7 +30,7 @@ public class ChallengeType {
 	}
 
 	protected void editScoreToPlayer(Player p, Location location, boolean remove) {
-		challenge.getChallengesManager().editScoreToPlayer(type, p, location, remove);
+		challenges.getChallengesManager().editScoreToPlayer(type, p, location, remove);
 	}
 
 	protected boolean checkRequirements() {
@@ -42,7 +44,7 @@ public class ChallengeType {
 	}
 
 	protected Challenge getSeletedChallenge() {
-		return challenge.getChallengesManager().getSelectedChallenge();
+		return challenges.getChallengesManager().getSelectedChallenge();
 	}
 
 }

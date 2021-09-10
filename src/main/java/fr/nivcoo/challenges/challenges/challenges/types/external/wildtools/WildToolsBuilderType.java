@@ -9,6 +9,7 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import com.bgsoftware.wildtools.api.events.BuilderWandUseEvent;
 
@@ -25,7 +26,9 @@ public class WildToolsBuilderType extends ChallengeType implements Listener {
 	@SuppressWarnings("deprecation")
 	@EventHandler
 	public void onBlockBreakEvent(BuilderWandUseEvent e) {
-		List<Location> blocks = e.getBlocks();
+		List<Location> locs = e.getBlocks();
+		for (Location loc : locs)
+			loc.getBlock().setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
 		if (!checkRequirements())
 			return;
 		Player p = e.getPlayer();
@@ -34,7 +37,7 @@ public class WildToolsBuilderType extends ChallengeType implements Listener {
 
 		boolean allow = selectedChallenge.isInMaterialsRequirement(b.getType(), (int) b.getData());
 		if (allow) {
-			for (Location loc : blocks)
+			for (Location loc : locs)
 				removeScoreToPlayer(p, loc);
 		}
 	}

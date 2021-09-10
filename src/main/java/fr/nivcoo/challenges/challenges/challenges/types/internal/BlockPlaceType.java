@@ -7,6 +7,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.metadata.FixedMetadataValue;
 
 import fr.nivcoo.challenges.challenges.Challenge;
 import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
@@ -21,10 +22,14 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 	@SuppressWarnings("deprecation")
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onBlockPlaceEvent(BlockPlaceEvent e) {
-		if (e.isCancelled() || !checkRequirements())
-			return;
-		Challenge selectedChallenge = getSeletedChallenge();
+
 		Block newBlock = e.getBlock();
+		if (e.isCancelled() || !checkRequirements()) {
+			newBlock.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
+			return;
+		}
+		Challenge selectedChallenge = getSeletedChallenge();
+
 		Player p = e.getPlayer();
 
 		Material oldMaterial = e.getBlockReplacedState().getType();

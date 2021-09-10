@@ -20,11 +20,16 @@ public class BlockBreakType extends ChallengeType implements Listener {
 	@SuppressWarnings("deprecation")
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onBlockBreakEvent(BlockBreakEvent e) {
-		if (e.isCancelled() || !checkRequirements())
+		Block b = e.getBlock();
+		boolean isBlacklisted = b.getMetadata(blacklistMeta).get(0).asBoolean();
+		b.removeMetadata(blacklistMeta, challenges);
+		if (e.isCancelled() || !checkRequirements() || isBlacklisted)
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
-		Block b = e.getBlock();
+		
 		Player p = e.getPlayer();
+		
+		
 
 		boolean allow = selectedChallenge.isInMaterialsRequirement(b.getType(), (int) b.getData());
 		if (allow)
