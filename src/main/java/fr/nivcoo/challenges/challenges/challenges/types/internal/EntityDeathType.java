@@ -1,14 +1,14 @@
 package fr.nivcoo.challenges.challenges.challenges.types.internal;
 
-import org.bukkit.entity.Animals;
-import org.bukkit.entity.Entity;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Slime;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
+
+import com.bgsoftware.wildstacker.api.WildStackerAPI;
 
 import fr.nivcoo.challenges.challenges.Challenge;
 import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
@@ -21,24 +21,25 @@ public class EntityDeathType extends ChallengeType implements Listener {
 	}
 
 	@EventHandler
-	public void onEntityDeathEvent(EntityDamageByEntityEvent e) {
+	public void onEntityDeath(EntityDeathEvent event) {
 		if (!checkRequirements())
 			return;
-
-		Entity entity = e.getEntity();
-
-		if (entity instanceof LivingEntity
-				&& (entity instanceof Monster || entity instanceof Animals || entity instanceof Slime) && e.getDamager() instanceof Player) {
-			LivingEntity killed = (LivingEntity) e.getEntity();
-			Player killer = (Player) e.getDamager();
-			if (e.getFinalDamage() >= killed.getHealth()) {
-				Challenge selectedChallenge = getSeletedChallenge();
-				boolean allow = selectedChallenge.isInRequirements(killed.getType().name());
-				if (allow)
-					addScoreToPlayer(killer);
-			}
-
+		LivingEntity entity = event.getEntity();
+		Player p = entity.getKiller();
+		if (!(p instanceof Player) || entity instanceof Player) {
+			return;
 		}
+		String stringEntity = entity.getType().toString().replace("Craft", "");
+		int entityAmount = 1;
+		if (event.getEntity().getType() != EntityType.ARMOR_STAND
+				&& Bukkit.getPluginManager().isPluginEnabled("WildStacker")) {
+			entityAmount = WildStackerAPI.getEntityAmount(event.getEntity());
+		}
+
+		Challenge selectedChallenge = getSeletedChallenge();
+		boolean allow = selectedChallenge.isInRequirements(stringEntity);
+		if (allow)
+			addScoreToPlayer(p, entityAmount);
 
 	}
 

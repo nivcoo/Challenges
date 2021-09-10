@@ -383,15 +383,18 @@ public class ChallengesManager {
 	}
 
 	public void sendConsoleCommand(String command, OfflinePlayer player) {
-		Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-				command.replaceAll("%player%", player.getName()));
+		Bukkit.getScheduler().runTask(challenges, () -> {
+			Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+					command.replaceAll("%player%", player.getName()));
+		});
+
 	}
 
 	public void editScoreToPlayer(Types type, Player p, Location loc) {
-		editScoreToPlayer(type, p, loc, false);
+		editScoreToPlayer(type, p, loc, false, 1);
 	}
 
-	public void editScoreToPlayer(Types type, Player p, Location loc, boolean remove) {
+	public void editScoreToPlayer(Types type, Player p, Location loc, boolean remove, int number) {
 		if (selectedChallenge == null)
 			return;
 		Types selectedChallengeType = selectedChallenge.getChallengeType();
@@ -400,7 +403,7 @@ public class ChallengesManager {
 				|| type.equals(Types.BLOCK_BREAK) && selectedChallengeType.equals(Types.BLOCK_PLACE))) {
 			if (loc != null && selectedChallengeType.equals(Types.BLOCK_BREAK))
 				addLocationToBlacklist(loc, p);
-			removeScoreToPlayer(p);
+			removeScoreToPlayer(p, number);
 			return;
 		}
 
@@ -408,7 +411,7 @@ public class ChallengesManager {
 			return;
 		Sound sound = Sound.valueOf(config.getString("sound.add"));
 
-		setScoreToPlayer(p, 1);
+		setScoreToPlayer(p, number);
 
 		p.playSound(p.getLocation(), sound, .4f, 1.7f);
 	}
@@ -422,14 +425,13 @@ public class ChallengesManager {
 		blacklistedBlockLocation.put(loc, p.getUniqueId());
 	}
 
-	public void removeScoreToPlayer(Player p) {
+	public void removeScoreToPlayer(Player p, int number) {
 		Sound sound = Sound.valueOf(config.getString("sound.remove"));
-		setScoreToPlayer(p, -1);
+		setScoreToPlayer(p, -number);
 		p.playSound(p.getLocation(), sound, .4f, 1.7f);
 	}
 
 	public void setScoreToPlayer(Player p, int value) {
-
 		Integer score = playersProgress.get(p.getUniqueId());
 		if (score == null) {
 			playersProgress.put(p.getUniqueId(), value);

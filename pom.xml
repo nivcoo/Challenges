@@ -30,7 +30,7 @@
 			<id>bgsoftware</id>
 			<url>https://repo.bg-software.com/repository/api/</url>
 		</repository>
-		
+
 	</repositories>
 
 	<dependencies>
@@ -49,6 +49,13 @@
 		<dependency>
 			<groupId>com.bgsoftware</groupId>
 			<artifactId>WildToolsAPI</artifactId>
+			<version>latest</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.bgsoftware</groupId>
+			<artifactId>WildStackerAPI</artifactId>
 			<version>latest</version>
 			<scope>provided</scope>
 		</dependency>
