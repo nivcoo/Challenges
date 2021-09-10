@@ -1,11 +1,14 @@
 package fr.nivcoo.challenges.challenges.challenges.types.internal;
 
+import java.util.List;
+
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.metadata.MetadataValue;
 
 import fr.nivcoo.challenges.challenges.Challenge;
 import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
@@ -21,7 +24,8 @@ public class BlockBreakType extends ChallengeType implements Listener {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
 	public void onBlockBreakEvent(BlockBreakEvent e) {
 		Block b = e.getBlock();
-		boolean isBlacklisted = b.getMetadata(blacklistMeta).get(0).asBoolean();
+		List<MetadataValue> metas = b.getMetadata(blacklistMeta);
+		boolean isBlacklisted = metas.size() > 0 && metas.get(0).asBoolean();
 		b.removeMetadata(blacklistMeta, challenges);
 		if (e.isCancelled() || !checkRequirements() || isBlacklisted)
 			return;

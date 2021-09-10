@@ -27,10 +27,11 @@ public class WildToolsBuilderType extends ChallengeType implements Listener {
 	@EventHandler
 	public void onBlockBreakEvent(BuilderWandUseEvent e) {
 		List<Location> locs = e.getBlocks();
-		for (Location loc : locs)
-			loc.getBlock().setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
-		if (!checkRequirements())
+		if (!checkRequirements()) {
+			for (Location loc : locs)
+				loc.getBlock().setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
 			return;
+		}
 		Player p = e.getPlayer();
 		Block b = p.getTargetBlock((Set<Material>) null, 10);
 		Challenge selectedChallenge = getSeletedChallenge();
