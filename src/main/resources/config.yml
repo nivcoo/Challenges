@@ -130,7 +130,7 @@ messages:
       place: "&7&l| &a&nPlace :&b&l {0}"
     countdown: "Défi lancé dans {0} {1} !"
   chat:
-    start_message: "&7[&c&lES&7] Vous avez {0} {1} pour : &a{2} !&7 Soyez le meilleur !"
+    start_message: "&7[&c&lES&7] &eVous avez &6{0} {1} &epour : &c{2} !&a Soyez le meilleur pour obtenir des récompenses ! &b/defi\n \n&c&lATTENTION : &cLes blocs précédement posés ne fonctionnent pas dans les défis !"
     no_player: "&7[&c&lES&7] Aucun joueur n'a fait le défi !"
     top:
       template: "&f&l| &bN°{0} &e{1} &7- &6{2} &a{3} + &b{4}"
