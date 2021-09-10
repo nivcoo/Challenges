@@ -108,6 +108,8 @@ public class ChallengesManager {
 			challenge.setRequirements(config.getStringList(challengePath + ".requirement"));
 
 			challenge.setMessage(config.getString(challengePath + ".message"));
+
+			challenge.setCountPreviousBlocks(config.getBoolean(challengePath + ".count_previous_blocks"));
 		}
 
 	}

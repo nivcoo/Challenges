@@ -32,6 +32,7 @@ blacklisted_world:
 #challenges_example:
 #  '0':
 #    message: "Casser des Roches"
+#    count_previous_blocks: false # default false
 #    challenge: "BLOCK_BREAK"
 #    requirement:
 #      - "STONE:0"

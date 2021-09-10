@@ -24,10 +24,9 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 	public void onBlockPlaceEvent(BlockPlaceEvent e) {
 
 		Block newBlock = e.getBlock();
-		if (e.isCancelled() || !checkRequirements()) {
-			newBlock.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
+		newBlock.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
+		if (e.isCancelled() || !checkRequirements())
 			return;
-		}
 		Challenge selectedChallenge = getSeletedChallenge();
 
 		Player p = e.getPlayer();

@@ -27,9 +27,12 @@ public class BlockBreakType extends ChallengeType implements Listener {
 		List<MetadataValue> metas = b.getMetadata(blacklistMeta);
 		boolean isBlacklisted = metas.size() > 0 && metas.get(0).asBoolean();
 		b.removeMetadata(blacklistMeta, challenges);
-		if (e.isCancelled() || !checkRequirements() || isBlacklisted)
+		if (e.isCancelled() || !checkRequirements())
 			return;
 		Challenge selectedChallenge = getSeletedChallenge();
+		
+		if(!selectedChallenge.countPreviousBlocks() && isBlacklisted)
+			return;
 		
 		Player p = e.getPlayer();
 		

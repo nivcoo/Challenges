@@ -12,6 +12,7 @@ public class Challenge {
 
 	private List<String> requirements;
 	private String message;
+	private boolean countPreviousBlocks;
 
 	public Challenge(Types challengeType) {
 		this.challengeType = challengeType;
@@ -35,6 +36,14 @@ public class Challenge {
 
 	public void setMessage(String message) {
 		this.message = message;
+	}
+
+	public void setCountPreviousBlocks(boolean countPreviousBlocks) {
+		this.countPreviousBlocks = countPreviousBlocks;
+	}
+
+	public boolean countPreviousBlocks() {
+		return countPreviousBlocks;
 	}
 
 	public boolean isInMaterialsRequirement(Material material, int data) {
