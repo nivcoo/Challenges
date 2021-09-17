@@ -1,5 +1,12 @@
-/target/
 .classpath
 .project
 .settings/
 /bin/
+
+# Ignore intellij files
+.idea
+*.iml
+
+# Ignore output generated files
+target
+out
