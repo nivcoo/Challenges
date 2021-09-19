@@ -24,7 +24,7 @@ sound:
   remove: BLOCK_ANVIL_BREAK
 
 # if the hour isn't into the list the challenges isn't start, useless if interval = 0, set [] to disable
-whitelisted_hours: []
+whitelisted_hours: [ ]
 
 blacklisted_world:
   - invest

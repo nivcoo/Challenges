@@ -1,14 +1,14 @@
 package fr.nivcoo.challenges.utils.commands;
 
-import java.util.List;
-
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.List;
+
 public interface Command {
 
-	/**
-	 * Inspired by BG-Software-LLC (https://bg-software.com/)
+    /**
+     * Inspired by BG-Software-LLC (https://bg-software.com/)
      * Get the aliases of the sub command.
      */
     List<String> getAliases();
@@ -26,7 +26,7 @@ public interface Command {
     boolean canBeExecutedByConsole();
 
     void execute(JavaPlugin plugin, CommandSender sender, String[] args);
-    
+
     List<String> tabComplete(JavaPlugin plugin, CommandSender sender, String[] args);
 
 }
