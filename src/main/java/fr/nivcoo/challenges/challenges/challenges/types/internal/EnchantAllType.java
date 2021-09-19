@@ -1,5 +1,8 @@
 package fr.nivcoo.challenges.challenges.challenges.types.internal;
 
+import fr.nivcoo.challenges.challenges.Challenge;
+import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
+import fr.nivcoo.challenges.challenges.challenges.Types;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -14,75 +17,71 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.Repairable;
 
-import fr.nivcoo.challenges.challenges.Challenge;
-import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
-import fr.nivcoo.challenges.challenges.challenges.Types;
-
 public class EnchantAllType extends ChallengeType implements Listener {
 
-	public EnchantAllType() {
-		type = Types.ENCHANT_ALL;
-	}
+    public EnchantAllType() {
+        type = Types.ENCHANT_ALL;
+    }
 
-	@SuppressWarnings("deprecation")
-	@EventHandler
-	public void onEnchantItemEvent(EnchantItemEvent e) {
-		if (!checkRequirements())
-			return;
-		Challenge selectedChallenge = getSeletedChallenge();
+    @SuppressWarnings("deprecation")
+    @EventHandler
+    public void onEnchantItemEvent(EnchantItemEvent e) {
+        if (!checkRequirements())
+            return;
+        Challenge selectedChallenge = getSeletedChallenge();
 
-		Player p = e.getEnchanter();
+        Player p = e.getEnchanter();
 
-		ItemStack is = e.getItem();
-		boolean allow = selectedChallenge.isInMaterialsRequirement(is.getType(), (int) is.getData().getData());
-		if (allow)
-			addScoreToPlayer(p);
+        ItemStack is = e.getItem();
+        boolean allow = selectedChallenge.isInMaterialsRequirement(is.getType(), is.getData().getData());
+        if (allow)
+            addScoreToPlayer(p);
 
-	}
+    }
 
-	@SuppressWarnings("deprecation")
-	@EventHandler
-	public void onInventoryClick(InventoryClickEvent e) {
-		if (!checkRequirements())
-			return;
-		Challenge selectedChallenge = getSeletedChallenge();
-		HumanEntity ent = e.getWhoClicked();
-		if (ent instanceof Player) {
-			Player p = (Player) ent;
-			Inventory inv = e.getInventory();
-			if (inv instanceof AnvilInventory) {
-				AnvilInventory anvil = (AnvilInventory) inv;
-				InventoryView view = e.getView();
-				int rawSlot = e.getRawSlot();
-				if (rawSlot == view.convertSlot(rawSlot) && rawSlot == 2) {
+    @SuppressWarnings("deprecation")
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent e) {
+        if (!checkRequirements())
+            return;
+        Challenge selectedChallenge = getSeletedChallenge();
+        HumanEntity ent = e.getWhoClicked();
+        if (ent instanceof Player) {
+            Player p = (Player) ent;
+            Inventory inv = e.getInventory();
+            if (inv instanceof AnvilInventory) {
+                AnvilInventory anvil = (AnvilInventory) inv;
+                InventoryView view = e.getView();
+                int rawSlot = e.getRawSlot();
+                if (rawSlot == view.convertSlot(rawSlot) && rawSlot == 2) {
 
-					ItemStack[] items = anvil.getContents();
-					ItemStack item1 = items[0];
-					ItemStack item2 = items[1];
-					if (item1 != null && item2 != null && !item1.getType().equals(Material.AIR)
-							&& !item2.getType().equals(Material.AIR)) {
+                    ItemStack[] items = anvil.getContents();
+                    ItemStack item1 = items[0];
+                    ItemStack item2 = items[1];
+                    if (item1 != null && item2 != null && !item1.getType().equals(Material.AIR)
+                            && !item2.getType().equals(Material.AIR)) {
 
-						ItemStack item3 = e.getCurrentItem();
-						if (item3 != null) {
-							ItemMeta meta = item3.getItemMeta();
-							if (meta instanceof Repairable) {
-								Repairable repairable = (Repairable) meta;
-								int repairCost = repairable.getRepairCost();
-								if (p.getLevel() >= repairCost) {
-									boolean allow = selectedChallenge.isInMaterialsRequirement(item3.getType(),
-											(int) item3.getData().getData());
-									if (allow)
-										addScoreToPlayer(p);
-								}
-							}
-						}
+                        ItemStack item3 = e.getCurrentItem();
+                        if (item3 != null) {
+                            ItemMeta meta = item3.getItemMeta();
+                            if (meta instanceof Repairable) {
+                                Repairable repairable = (Repairable) meta;
+                                int repairCost = repairable.getRepairCost();
+                                if (p.getLevel() >= repairCost) {
+                                    boolean allow = selectedChallenge.isInMaterialsRequirement(item3.getType(),
+                                            item3.getData().getData());
+                                    if (allow)
+                                        addScoreToPlayer(p);
+                                }
+                            }
+                        }
 
-					}
+                    }
 
-				}
-			}
-		}
+                }
+            }
+        }
 
-	}
+    }
 
 }

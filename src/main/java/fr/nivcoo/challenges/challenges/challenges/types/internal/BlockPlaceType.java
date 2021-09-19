@@ -1,5 +1,8 @@
 package fr.nivcoo.challenges.challenges.challenges.types.internal;
 
+import fr.nivcoo.challenges.challenges.Challenge;
+import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
+import fr.nivcoo.challenges.challenges.challenges.Types;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -9,35 +12,31 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 
-import fr.nivcoo.challenges.challenges.Challenge;
-import fr.nivcoo.challenges.challenges.challenges.ChallengeType;
-import fr.nivcoo.challenges.challenges.challenges.Types;
-
 public class BlockPlaceType extends ChallengeType implements Listener {
 
-	public BlockPlaceType() {
-		type = Types.BLOCK_PLACE;
-	}
+    public BlockPlaceType() {
+        type = Types.BLOCK_PLACE;
+    }
 
-	@SuppressWarnings("deprecation")
-	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-	public void onBlockPlaceEvent(BlockPlaceEvent e) {
+    @SuppressWarnings("deprecation")
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBlockPlaceEvent(BlockPlaceEvent e) {
 
-		Block newBlock = e.getBlock();
-		newBlock.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
-		if (e.isCancelled() || !checkRequirements())
-			return;
-		Challenge selectedChallenge = getSeletedChallenge();
+        Block newBlock = e.getBlock();
+        newBlock.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
+        if (!checkRequirements())
+            return;
+        Challenge selectedChallenge = getSeletedChallenge();
 
-		Player p = e.getPlayer();
+        Player p = e.getPlayer();
 
-		Material oldMaterial = e.getBlockReplacedState().getType();
-		Material newMaterial = newBlock.getType();
+        Material oldMaterial = e.getBlockReplacedState().getType();
+        Material newMaterial = newBlock.getType();
 
-		boolean allow = selectedChallenge.isInMaterialsRequirement(newMaterial, (int) newBlock.getData());
-		if (allow && !oldMaterial.equals(newMaterial))
-			addScoreToPlayer(p, newBlock.getLocation());
+        boolean allow = selectedChallenge.isInMaterialsRequirement(newMaterial, newBlock.getData());
+        if (allow && !oldMaterial.equals(newMaterial))
+            addScoreToPlayer(p, newBlock.getLocation());
 
-	}
+    }
 
 }
