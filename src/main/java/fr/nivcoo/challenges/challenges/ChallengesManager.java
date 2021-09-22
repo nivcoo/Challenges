@@ -6,8 +6,6 @@ import fr.nivcoo.challenges.challenges.challenges.types.external.wildtools.WildT
 import fr.nivcoo.challenges.challenges.challenges.types.internal.*;
 import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.time.TimePair;
-import net.md_5.bungee.api.ChatMessageType;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
@@ -179,7 +177,6 @@ public class ChallengesManager {
 
             } catch (InterruptedException ex) {
                 challengeStarted = false;
-                return;
             }
 
         }, threadName);
@@ -272,7 +269,7 @@ public class ChallengesManager {
     }
 
     public void sendActionBarMessage(Player p, String message) {
-        p.spigot().sendMessage(ChatMessageType.ACTION_BAR, new TextComponent(message));
+        p.sendActionBar(message);
     }
 
     public int getScoreOfPlayer(UUID uuid) {
@@ -286,7 +283,7 @@ public class ChallengesManager {
         String noPlayerMessage = config.getString("messages.chat.no_player");
         List<String> keys = config.getKeys("rewards.top");
         int place = 0;
-        String globalTemplateMessage = "";
+        StringBuilder globalTemplateMessage = new StringBuilder();
         boolean sendTop = false;
         List<String> commandsForAll = config.getStringList("rewards.for_all");
         boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
@@ -341,25 +338,25 @@ public class ChallengesManager {
 
             templateMessage = templateMessage.replace("{4}", messageTop);
 
-            globalTemplateMessage += templateMessage;
+            globalTemplateMessage.append(templateMessage);
 
             if (place + 1 <= numberOfWinner && filteredPlayers.size() > place)
-                globalTemplateMessage += "§r \n";
+                globalTemplateMessage.append("§r \n");
 
         }
         List<String> globalMessagesList = config.getStringList("messages.chat.top.message");
-        String globalMessage = "";
+        StringBuilder globalMessage = new StringBuilder();
         int i = 0;
         for (String m : globalMessagesList) {
-            globalMessage += m.replace("{0}", getSelectedChallenge().getMessage()).replace("{1}",
-                    globalTemplateMessage);
+            globalMessage.append(m.replace("{0}", getSelectedChallenge().getMessage()).replace("{1}",
+                    globalTemplateMessage.toString()));
             if (globalMessagesList.size() - 1 != i)
-                globalMessage += "§r \n";
+                globalMessage.append("§r \n");
             i++;
         }
 
         if (sendTop) {
-            sendGlobalMessage(globalMessage);
+            sendGlobalMessage(globalMessage.toString());
         } else {
             sendGlobalMessage(noPlayerMessage);
         }
@@ -367,10 +364,8 @@ public class ChallengesManager {
     }
 
     public void sendConsoleCommand(String command, OfflinePlayer player) {
-        Bukkit.getScheduler().runTask(challenges, () -> {
-            Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-                    command.replaceAll("%player%", player.getName()));
-        });
+        Bukkit.getScheduler().runTask(challenges, () -> Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
+                command.replaceAll("%player%", player.getName())));
 
     }
 
