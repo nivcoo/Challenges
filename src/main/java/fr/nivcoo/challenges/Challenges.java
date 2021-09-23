@@ -44,7 +44,7 @@ public class Challenges extends JavaPlugin {
         db = new Database(database.getPath());
         db.initDB();
 
-        config = new Config(new File(getDataFolder() + File.separator + "config.yml"));
+        config = new Config(configFile);
 
         loadTimeUtil();
         loadCacheManager();
