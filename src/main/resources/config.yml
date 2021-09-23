@@ -39,9 +39,9 @@ messages:
       - "{!chatreactions.command.stop}&6/chatreactions stop &estop the current reaction !"
       - "&7&m----------------------------------------------"
     start:
-      success: "&7[&c&lES&7] La Réaction a été lancé avec succès !"
+      success: "&7[&c&lES&7] La Réaction a été lancée avec succès !"
     stop:
-      success: "&7[&c&lES&7] La Réaction a été stoppé avec succès !"
+      success: "&7[&c&lES&7] La Réaction a été stoppée avec succès !"
   chat:
     start_messages:
       hover:
@@ -57,18 +57,17 @@ messages:
         - '&f&l|&e Vous devez être le plus rapide pour remporter               '
         - '&eles récompenses &e!                                            '
         - '                                                       '
-        - '&f&l|&bNombre de Gagnants : 3                                             '
+        - '&f&l|&b Nombre de Gagnants : 3 &7(/reaction)                                      '
         - '&7&l---»                                                   '
         - '                                                       '
 
     no_player: '&7[&c&lRéaction&7] &cPersonne n''a trouvé le mot à temps.'
-
     top:
       template: "&f&l| &bN°{0} &e{1} &7- &a{2}s &7- &d{3} {4}"
       template_points:
         point: "Point"
         points: "Points"
-        display: "&f&l| (+{0} {1})"
+        display: "&f&l| &b(+{0} {1})"
         default: ""
       send_total_message: false
       # send these messages if send_total_message is set to false
