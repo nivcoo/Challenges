@@ -1,148 +1,89 @@
-# %challenges_get_classement_score%
-# %challenges_is_started%
-# %challenges_top_username_1%
-# %challenges_top_count_2%
-# %challenges_current_challenge_message%
-# %challenges_current_challenge_count%
-# %challenges_current_challenge_place%
-# %challenges_current_challenge_countdown%
+# %chatreactions_get_score%
 
-# in seconds, set 0 to disable and use command
-interval: 20
+words_file_name: "words/dictionary.txt"
+
+interval:
+  # in seconds
+  min: 900
+  max: 1200
 
 # in seconds
-timeout: 60
+time_limit: 30
 
-#number of second for countdown
-countdown_number: 5
-
-players_needed: 1
-
-sound:
-  messages: ENTITY_EXPERIENCE_ORB_PICKUP
-  add: ENTITY_EXPERIENCE_ORB_PICKUP
-  remove: BLOCK_ANVIL_BREAK
-
-# if the hour isn't into the list the challenges isn't start, useless if interval = 0, set [] to disable
-whitelisted_hours: [ ]
-
-blacklisted_world:
-  - invest
-
-#challenges_example:
-#  '0':
-#    message: "Casser des Roches"
-#    count_previous_blocks: false # default false
-#    challenge: "BLOCK_BREAK"
-#    requirement:
-#      - "STONE:0"
-#  '1':
-#    message: "Tuer des zombies"
-#    challenge: "ENTITY_DEATH"
-#    requirement:
-#      - "ZOMBIE"
-#  '2':
-#    message: "Pêcher des Objets/Poissons"
-#    challenge: "FISHING"
-#  '3':
-#    message: "Enchanter des objets"
-#    challenge: "ENCHANT_ALL"
-#  '4':
-#    message: "Enchanter des Pelles en fer"
-#    challenge: "ENCHANT_ALL"
-#    requirement:
-#      - "IRON_SHOVEL"
-#  '5':
-#    message: "Manger des Légumes"
-#    challenge: "CONSUME"
-
-challenges:
-  '0':
-    message: "Casser des Roches"
-    challenge: "BLOCK_BREAK"
-    requirement:
-      - "STONE:0"
+sounds:
+  start: ENTITY_EXPERIENCE_ORB_PICKUP
+  win: ENTITY_EXPERIENCE_ORB_PICKUP
 
 rewards:
-  give_for_all_reward_to_top: true
-  for_all:
-    message: "1 Diamant"
-    commands:
-      - "give %player% diamond 1"
-  add_all_top_into_db: true
   top:
     '1':
-      message: "1 terre"
+      message: "1.500$"
       commands:
-        - "give %player% dirt 1"
+        - "eco give %player% 1500"
     '2':
-      message: "1 terre"
+      message: "1.000$"
       commands:
-        - "give %player% dirt 1"
+        - "eco give %player% 1000"
+    '3':
+      message: "500$"
+      commands:
+        - "eco give %player% 500"
 
 messages:
-  placeholders:
-    current_challenge_countdown:
-      started: "{0} {1}"
-      stop: "&c✖"
-    current_challenge_place:
-      none: "&f??"
   commands:
     incorrect_usage: "&fCorrect Usage : {0}"
     no_permission: "&fCommande inconnue."
     help:
       - "&7&m------------------&8[&6Help Panel&8]&7&m------------------"
-      - "{!challenges.command.start}&6/clgs start &estart a challenge !"
-      - "{!challenges.command.stop}&6/clgs stop &estop the current challenge !"
-      - "{!challenges.command.end}&6/clgs end &estop the current challenge with rewards !"
-      - "{!challenges.command.start_interval}&6/clgs start_interval &estart challenge interval !"
-      - "{!challenges.command.stop_interval}&6/clgs stop_interval &estop challenge interval !"
-      - "{!challenges.command.reload}&6/clgs reload &ereload the plugin !"
-      - "{!challenges.command.delete_datas}&6/clgs delete_datas &eclear the db !"
+      - "{!chatreactions.command.start}&6/chatreactions start &estart a reaction !"
+      - "{!chatreactions.command.stop}&6/chatreactions stop &estop the current reaction !"
       - "&7&m----------------------------------------------"
-    success_start: "&7[&c&lES&7] Le challenge a été lancé avec succès !"
-    success_stop: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
-    success_end: "&7[&c&lES&7] Le challenge a été stoppé et les récompenses ont été données avec succès !"
-    success_start_interval: "&7[&c&lES&7] L'interval des challenges a été lancé avec succès !"
-    success_stop_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
-    success_reload: "&7[&c&lES&7] Le plugin vient d'être reload !"
-    success_delete_datas: "&7[&c&lES&7] La base de données vient d'être vidée !"
-  global:
-    none: "Aucun"
-    second: "seconde"
-    seconds: "secondes"
-    minute: "minute"
-    minutes: "minutes"
-    hour: "heure"
-    hours: "heures"
-  title:
     start:
-      stay: 4
-      fadeInTick: 10
-      fadeOutTick: 20
-      title: "Défi !"
-      subtitle: "Vous avez {0} {1} pour : &a{2} !"
-    countdown:
-      title: "Défi !"
-      subtitle: "Défi lancé dans {0} {1} !"
-  action_bar:
-    running:
-      message: "&a&n{0} :&b&l {1} &7&l| &e&nTemps restant :&6&l {2} {3} {4}"
-      place: "&7&l| &a&nPlace :&b&l {0}"
-    countdown: "Défi lancé dans {0} {1} !"
+      success: "&7[&c&lES&7] La Réaction a été lancé avec succès !"
+    stop:
+      success: "&7[&c&lES&7] La Réaction a été stoppé avec succès !"
   chat:
-    start_message: "&7[&c&lES&7] &eVous avez &6{0} {1} &epour : &c{2} !&a Soyez le meilleur pour obtenir des récompenses ! &b/defi\n \n&c&lATTENTION : &cLes blocs précédement posés ne fonctionnent pas dans les défis !"
-    no_player: "&7[&c&lES&7] Aucun joueur n'a fait le défi !"
+    start_messages:
+      hover:
+        - "&f{0}"
+      messages:
+        - '                                                       '
+        - '&7&l---»                                               '
+        - '&7[&6&l!&7] &b&lRÉACTION CHAT&7 [&6&l!&7]                                  '
+        - '                                                       '
+        - '&f&l|&a&l Passe ta souris dans le chat et recopies         '
+        - '&a&lle mot affiché.                                             '
+        - '                                                       '
+        - '&f&l|&e Vous devez être le plus rapide pour remporter               '
+        - '&eles récompenses &e!                                            '
+        - '                                                       '
+        - '&f&l|&bNombre de Gagnants : 3                                             '
+        - '&7&l---»                                                   '
+        - '                                                       '
+
+    no_player: '&7[&c&lRéaction&7] &cPersonne n''a trouvé le mot à temps.'
+
     top:
-      template: "&f&l| &bN°{0} &e{1} &7- &6{2} &a{3} + &b{4}"
+      template: "&f&l| &bN°{0} &e{1} &7- &a{2}s &7- &d{3} {4}"
       template_points:
         point: "Point"
         points: "Points"
-        display: "(+{0} {1})"
+        display: "&f&l| (+{0} {1})"
         default: ""
+      send_total_message: false
+      # send these messages if send_total_message is set to false
+      no_all_player: "&7[&c&lRéaction&7] &cToutes les récompenses n'ont pas été données à temps !"
+      all_rewards: "&7[&c&lRéaction&7] &aToutes les récompenses ont été données !"
       message:
-        - "test {0}"
+        - '&r '
+        - "&7---»"
+        - "&r "
+        - "&dLa réaction est terminé !"
+        - "&7 Le mot était : {0} &7(&b/reaction&7)"
+        - "&r "
+        - "&a&l&nCLASSEMENT RÉACTIONS :"
+        - "&r "
         - "{1}"
-  rewards:
-    for_all: "&7[&c&lES&7] Vous avez participé au défi, vous gagnez {0} !"
-    top: "&7[&c&lES&7] Vous avez participé au défi, et vous êtes &aTOP {0} &7! Vous gagnez : {1} !"
+        - "&r "
+        - "&7---»"
+        - '&r '
