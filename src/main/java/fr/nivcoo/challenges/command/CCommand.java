@@ -1,7 +1,7 @@
 package fr.nivcoo.challenges.command;
 
 import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.utils.commands.Command;
+import fr.nivcoo.utilsz.commands.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 

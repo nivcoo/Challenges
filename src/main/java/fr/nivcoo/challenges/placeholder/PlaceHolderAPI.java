@@ -2,8 +2,8 @@ package fr.nivcoo.challenges.placeholder;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.Challenge;
-import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.time.TimePair;
+import fr.nivcoo.utilsz.config.Config;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;

@@ -2,18 +2,18 @@ package fr.nivcoo.challenges.command.commands;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.command.CCommand;
-import fr.nivcoo.challenges.utils.Config;
+import fr.nivcoo.utilsz.config.Config;
 import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class StopCMD implements CCommand {
 
     @Override
     public List<String> getAliases() {
-        return Arrays.asList("stop");
+        return Collections.singletonList("stop");
     }
 
     @Override
@@ -50,7 +50,6 @@ public class StopCMD implements CCommand {
         Config config = challenges.getConfiguration();
         challenges.getChallengesManager().stopCurrentChallenge();
         sender.sendMessage(config.getString("messages.commands.success_stop"));
-
     }
 
     @Override

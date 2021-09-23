@@ -4,10 +4,10 @@ import fr.nivcoo.challenges.cache.CacheManager;
 import fr.nivcoo.challenges.challenges.ChallengesManager;
 import fr.nivcoo.challenges.command.commands.*;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
-import fr.nivcoo.challenges.utils.Config;
 import fr.nivcoo.challenges.utils.Database;
-import fr.nivcoo.challenges.utils.commands.CommandManager;
 import fr.nivcoo.challenges.utils.time.TimeUtil;
+import fr.nivcoo.utilsz.commands.CommandManager;
+import fr.nivcoo.utilsz.config.Config;
 import org.bukkit.Bukkit;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -38,7 +38,7 @@ public class Challenges extends JavaPlugin {
         if (!database.exists()) {
             try {
                 database.createNewFile();
-            } catch (IOException e) {
+            } catch (IOException ignored) {
             }
         }
         db = new Database(database.getPath());

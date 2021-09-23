@@ -2,18 +2,18 @@ package fr.nivcoo.challenges.command.commands;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.command.CCommand;
-import fr.nivcoo.challenges.utils.Config;
+import fr.nivcoo.utilsz.config.Config;
 import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class StartIntervalCMD implements CCommand {
 
     @Override
     public List<String> getAliases() {
-        return Arrays.asList("start_interval");
+        return Collections.singletonList("start_interval");
     }
 
     @Override
