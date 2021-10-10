@@ -2,6 +2,7 @@ name: Challenges
 version: 1.0.0
 author: nivcoo
 main: fr.nivcoo.challenges.Challenges
+api-version: 1.13
 softdepend: [ PlaceholderAPI, WildTools, WildStacker ]
 commands:
   clgs:
