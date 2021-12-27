@@ -7,6 +7,7 @@ import fr.nivcoo.utilsz.config.Config;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 public class PlaceHolderAPI extends PlaceholderExpansion {
 
@@ -19,18 +20,18 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     }
 
     @Override
-    public String getAuthor() {
-        return "nivcoo";
+    public @NotNull String getAuthor() {
+        return challenges.getDescription().getAuthors().toString();
     }
 
     @Override
-    public String getIdentifier() {
+    public @NotNull String getIdentifier() {
         return "challenges";
     }
 
     @Override
-    public String getVersion() {
-        return "0.0.1";
+    public @NotNull String getVersion() {
+        return challenges.getDescription().getVersion();
     }
 
     @Override
