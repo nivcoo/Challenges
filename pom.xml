@@ -30,6 +30,10 @@
             <id>bgsoftware</id>
             <url>https://repo.bg-software.com/repository/api/</url>
         </repository>
+        <repository>
+            <id>revolis</id>
+            <url>https://repo.revolis.fr/repository/minecraft/</url>
+        </repository>
 
     </repositories>
 
