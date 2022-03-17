@@ -64,9 +64,7 @@ public class ChallengesManager {
         registerEvent(new FishingType());
         registerEvent(new EnchantAllType());
         registerEvent(new ConsumeType());
-
-        if (Bukkit.getPluginManager().isPluginEnabled("WildTools"))
-            registerEvent(new WildToolsBuilderType());
+        registerEvent(new WildToolsBuilderType());
     }
 
     public void registerEvent(Listener type) {
