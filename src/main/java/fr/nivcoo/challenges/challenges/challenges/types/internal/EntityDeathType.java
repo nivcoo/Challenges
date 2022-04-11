@@ -24,7 +24,7 @@ public class EntityDeathType extends ChallengeType implements Listener {
             return;
         LivingEntity entity = event.getEntity();
         Player p = entity.getKiller();
-        if (!(p instanceof Player) || entity instanceof Player) {
+        if (p == null || entity instanceof Player) {
             return;
         }
         String stringEntity = entity.getType().toString().replace("Craft", "");
