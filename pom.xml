@@ -55,7 +55,7 @@
         <dependency>
             <groupId>com.bgsoftware</groupId>
             <artifactId>WildToolsAPI</artifactId>
-            <version>2.11.3</version>
+            <version>2.11.4</version>
             <scope>provided</scope>
         </dependency>
 
@@ -68,7 +68,7 @@
         <dependency>
             <groupId>fr.nivcoo</groupId>
             <artifactId>UtilsZ</artifactId>
-            <version>LATEST</version>
+            <version>1.1.1</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
