@@ -47,7 +47,7 @@ public class Challenge {
 
     public boolean isInMaterialsRequirement(Material material, int data) {
         for (String materialData : requirements) {
-            Material m = null;
+            Material m;
             Integer d = null;
             if (materialData.contains(":")) {
                 String[] result = materialData.split(":");

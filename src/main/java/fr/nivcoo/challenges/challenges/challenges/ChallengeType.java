@@ -43,11 +43,10 @@ public class ChallengeType {
     protected boolean checkRequirements() {
         Challenge selectedChallenge = getSeletedChallenge();
 
-        boolean correctType = selectedChallenge != null && (selectedChallenge.getChallengeType().equals(type)
+        return selectedChallenge != null && (selectedChallenge.getChallengeType().equals(type)
                 || (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
                 || type.equals(Types.BLOCK_BREAK)
                 && selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE)));
-        return correctType;
     }
 
     protected Challenge getSeletedChallenge() {
