@@ -19,7 +19,7 @@ public class BlockPlaceType extends ChallengeType implements Listener {
     }
 
     @SuppressWarnings("deprecation")
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockPlaceEvent(BlockPlaceEvent e) {
 
         Block newBlock = e.getBlock();

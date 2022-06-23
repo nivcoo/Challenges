@@ -20,7 +20,7 @@ public class BlockBreakType extends ChallengeType implements Listener {
     }
 
     @SuppressWarnings("deprecation")
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreakEvent(BlockBreakEvent e) {
         Block b = e.getBlock();
         List<MetadataValue> metas = b.getMetadata(blacklistMeta);
