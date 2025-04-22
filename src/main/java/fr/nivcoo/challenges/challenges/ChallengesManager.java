@@ -1,6 +1,10 @@
 package fr.nivcoo.challenges.challenges;
 
 import fr.nivcoo.challenges.Challenges;
+import fr.nivcoo.challenges.actions.ChallengeEndAction;
+import fr.nivcoo.challenges.actions.ChallengeScoreAction;
+import fr.nivcoo.challenges.actions.ChallengeStartAction;
+import fr.nivcoo.challenges.actions.ChallengeStopAction;
 import fr.nivcoo.challenges.challenges.challenges.Types;
 import fr.nivcoo.challenges.challenges.challenges.types.external.wildtools.WildToolsBuilderType;
 import fr.nivcoo.challenges.challenges.challenges.types.internal.*;
@@ -39,6 +43,8 @@ public class ChallengesManager {
     private int timeout;
     private int countdownNumber;
     private int playerNeeded;
+
+    private boolean isChallengeOrigin = false;
 
     public ChallengesManager() {
         init();
@@ -126,63 +132,29 @@ public class ChallengesManager {
     public void startChallenge() {
         stopCurrentChallenge();
 
-        String countdownMessageActionBar = config.getString("messages.action_bar.countdown");
-        String countdownMessageTitle = config.getString("messages.title.countdown.title");
-        String countdownMessageSubtitle = config.getString("messages.title.countdown.subtitle");
-        String threadName = "Challenges Start Thread";
-        challengeThread = new Thread(() -> {
-            try {
+        Challenge c = challengesList.get(new Random().nextInt(challengesList.size()));
+        this.selectedChallenge = c;
 
-                for (int i = 0; i < countdownNumber; i++) {
-                    int timeleft = countdownNumber - i;
-                    TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(timeleft);
+        long now = System.currentTimeMillis();
+        int countdown = countdownNumber;
 
-                    long number = getTimePair.getFirst();
+        ChallengeStartAction action = new ChallengeStartAction(
+                c.getMessage(),
+                c.getChallengeType().name(),
+                c.getRequirements(),
+                c.countPreviousBlocks(),
+                timeout,
+                countdown,
+                now
+        );
 
-                    String type = getTimePair.getSecond();
+        if (Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(action);
+        }
 
-                    sendActionBarMessage(
-                            countdownMessageActionBar.replace("{0}", String.valueOf(number)).replace("{1}", type));
-                    sendTitleMessage(countdownMessageTitle.replace("{0}", String.valueOf(number)).replace("{1}", type),
-                            countdownMessageSubtitle.replace("{0}", String.valueOf(number)).replace("{1}", type), 2, 0,
-                            0);
-
-                    Thread.sleep(1000);
-                }
-
-                challengeStarted = true;
-
-                Random rand = new Random();
-
-                TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(timeout);
-
-                long number = getTimePair.getFirst();
-
-                String type = getTimePair.getSecond();
-                selectedChallenge = challengesList.get(rand.nextInt(challengesList.size()));
-                sendTitleMessage(
-                        config.getString("messages.title.start.title", String.valueOf(number), type,
-                                selectedChallenge.getMessage()),
-                        config.getString("messages.title.start.subtitle", String.valueOf(number), type,
-                                selectedChallenge.getMessage()),
-                        config.getInt("messages.title.start.stay"), config.getInt("messages.title.start.fadeInTick"),
-                        config.getInt("messages.title.start.fadeOutTick"));
-                sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(number), type,
-                        selectedChallenge.getMessage()));
-                Date date = new Date();
-                startedTimestamp = date.getTime();
-                startActionBarInterval();
-
-                startFinishTimer(threadName, timeout);
-
-            } catch (InterruptedException ex) {
-                challengeStarted = false;
-            }
-
-        }, threadName);
-        challengeThread.start();
-
+        startCountdownFromRedis(c, timeout, countdown, now, true);
     }
+
 
     public void startFinishTimer(String threadName, int timeout) {
         delayedCancelTaskTimer = new Timer(threadName);
@@ -291,90 +263,138 @@ public class ChallengesManager {
     public void sendTop() {
         if (getSelectedChallenge() == null)
             return;
-        String noPlayerMessage = config.getString("messages.chat.no_player");
-        List<String> keys = config.getKeys("rewards.top");
+
+        Map<UUID, Integer> sorted = getSortPlayersProgress();
+        if (sorted.isEmpty()) {
+            sendGlobalMessage(config.getString("messages.chat.no_player"));
+            return;
+        }
+
+        // Toujours afficher le top à tout le monde
+        String message = buildTopMessage(sorted);
+
+        // Affichage global (même pour les serveurs secondaires)
+        sendGlobalMessage(message);
+
+        // Récompenses uniquement si serveur émetteur
+        if (!isChallengeOrigin) return;
+
+        distributeTopRewards(sorted);
+    }
+
+    public String buildTopMessage(Map<UUID, Integer> sorted) {
+        List<String> topKeys = config.getKeys("rewards.top");
+        int winnersCount = topKeys.size();
+        String templatePointPath = "messages.chat.top.template_points.";
+        StringBuilder globalTop = new StringBuilder();
+
         int place = 0;
-        StringBuilder globalTemplateMessage = new StringBuilder();
-        boolean sendTop = false;
+        for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
+            place++;
+            UUID uuid = entry.getKey();
+            int score = entry.getValue();
+            OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+
+            String baseMessage = config.getString("messages.chat.top.template",
+                    String.valueOf(place),
+                    player.getName(),
+                    String.valueOf(score));
+
+            boolean isTop = place <= winnersCount;
+
+            if (isTop) {
+                String rewardMessage = config.getString("rewards.top." + place + ".message");
+                baseMessage = baseMessage.replace("{4}", rewardMessage);
+
+                boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+                int addNumber = addAllTop ? winnersCount - place + 1 : (place == 1 ? 1 : 0);
+
+                if (addNumber > 0) {
+                    String label = (addNumber > 1)
+                            ? config.getString(templatePointPath + "points")
+                            : config.getString(templatePointPath + "point");
+                    String pointText = config.getString(templatePointPath + "display",
+                            String.valueOf(addNumber), label);
+                    baseMessage = baseMessage.replace("{3}", pointText);
+                } else {
+                    baseMessage = baseMessage.replace("{3}", config.getString(templatePointPath + "default"));
+                }
+            } else {
+                baseMessage = baseMessage.replace("{3}", config.getString(templatePointPath + "default"));
+                baseMessage = baseMessage.replace("{4}", "");
+            }
+
+            globalTop.append(baseMessage);
+            if (place < winnersCount && place < sorted.size())
+                globalTop.append("§r \n");
+        }
+
+        StringBuilder finalMessage = new StringBuilder();
+        List<String> format = config.getStringList("messages.chat.top.message");
+        int i = 0;
+        for (String line : format) {
+            finalMessage.append(line
+                    .replace("{0}", getSelectedChallenge().getMessage())
+                    .replace("{1}", globalTop.toString()));
+            if (i++ < format.size() - 1)
+                finalMessage.append("§r \n");
+        }
+
+        return finalMessage.toString();
+    }
+
+    public void distributeTopRewards(Map<UUID, Integer> sorted) {
+        List<String> keys = config.getKeys("rewards.top");
         List<String> commandsForAll = config.getStringList("rewards.for_all");
         boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
-        Map<UUID, Integer> filteredPlayersProgress = getSortPlayersProgress();
-        Set<UUID> filteredPlayers = filteredPlayersProgress.keySet();
-        for (UUID uuid : filteredPlayersProgress.keySet()) {
-            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
-            Player p = offlinePlayer.getPlayer();
+        boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+
+        int winnersCount = keys.size();
+        int place = 0;
+
+        for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
             place++;
-            int score = getScoreOfPlayer(uuid);
-            int numberOfWinner = keys.size();
-            boolean outOfTop = place > numberOfWinner;
-            for (String c : commandsForAll) {
-                if (!outOfTop && giveForAllRewardToTop)
-                    sendConsoleCommand(c, offlinePlayer);
-                if (outOfTop && p != null)
-                    p.sendMessage(
-                            config.getString("messages.rewards.for_all", config.getString("rewards.for_all.message")));
+            UUID uuid = entry.getKey();
+            OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+            Player online = player.getPlayer();
+
+            boolean isTop = place <= winnersCount;
+            boolean outOfTop = !isTop;
+
+            // Récompenses pour tous
+            for (String cmd : commandsForAll) {
+                if (isTop && giveForAllRewardToTop) {
+                    sendConsoleCommand(cmd, player);
+                } else if (outOfTop && online != null) {
+                    online.sendMessage(config.getString("messages.rewards.for_all",
+                            config.getString("rewards.for_all.message")));
+                }
             }
-            if (outOfTop)
-                continue;
-            sendTop = true;
+
+            // Récompenses de classement
+            if (!isTop) continue;
 
             String rewardsTopPath = "rewards.top." + place;
-            List<String> commandsTop = config.getStringList(rewardsTopPath + ".commands");
             String messageTop = config.getString(rewardsTopPath + ".message");
-            for (String c : commandsTop) {
-                sendConsoleCommand(c, offlinePlayer);
-                if (p != null)
-                    p.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
-            }
-            String templateMessage = config.getString("messages.chat.top.template", String.valueOf(place),
-                    offlinePlayer.getName(), String.valueOf(score));
 
-            boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
-            String templatePointPath = "messages.chat.top.template_points.";
+            for (String cmd : config.getStringList(rewardsTopPath + ".commands")) {
+                sendConsoleCommand(cmd, player);
+                if (online != null) {
+                    online.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
+                }
+            }
+
             if (addAllTop || place == 1) {
-                int addNumber = 1;
-                if (addAllTop)
-                    addNumber = numberOfWinner - place + 1;
-                String point = config.getString(templatePointPath + "point");
-                String points = config.getString(templatePointPath + "points");
-                String type = point;
-                if (addNumber > 1)
-                    type = points;
-                if (addNumber < 0)
-                    addNumber = 0;
-                String pointMessage = config.getString(templatePointPath + "display", String.valueOf(addNumber), type);
-                templateMessage = templateMessage.replace("{3}", pointMessage);
+                int addNumber = addAllTop ? winnersCount - place + 1 : 1;
+                addNumber = Math.max(addNumber, 0);
                 challenges.getCacheManager().updatePlayerScore(uuid, addNumber);
-            } else {
-                templateMessage = templateMessage.replace("{3}", config.getString(templatePointPath + "default"));
             }
-
-            templateMessage = templateMessage.replace("{4}", messageTop);
-
-            globalTemplateMessage.append(templateMessage);
-
-            if (place + 1 <= numberOfWinner && filteredPlayers.size() > place)
-                globalTemplateMessage.append("§r \n");
-
         }
-        List<String> globalMessagesList = config.getStringList("messages.chat.top.message");
-        StringBuilder globalMessage = new StringBuilder();
-        int i = 0;
-        for (String m : globalMessagesList) {
-            globalMessage.append(m.replace("{0}", getSelectedChallenge().getMessage()).replace("{1}",
-                    globalTemplateMessage.toString()));
-            if (globalMessagesList.size() - 1 != i)
-                globalMessage.append("§r \n");
-            i++;
-        }
-
-        if (sendTop) {
-            sendGlobalMessage(globalMessage.toString());
-        } else {
-            sendGlobalMessage(noPlayerMessage);
-        }
-
     }
+
+
+
+
 
     public void sendConsoleCommand(String command, OfflinePlayer player) {
         if (player == null || player.getName() == null)
@@ -417,7 +437,6 @@ public class ChallengesManager {
     }
 
 
-
     public boolean locationIsBlacklistedForPlayer(Location loc, Player p) {
         UUID player = blacklistedBlockLocation.get(loc);
         return player != null && player != p.getUniqueId();
@@ -434,17 +453,18 @@ public class ChallengesManager {
     }
 
     public void setScoreToPlayer(Player p, int value) {
-        Integer score = playersProgress.get(p.getUniqueId());
-        if (score == null) {
-            playersProgress.put(p.getUniqueId(), value);
+        UUID uuid = p.getUniqueId();
+        int newScore = playersProgress.getOrDefault(uuid, 0) + value;
+        playersProgress.put(uuid, newScore);
 
-        } else {
-            int newScore = score + value;
-            playersProgress.put(p.getUniqueId(), newScore);
+        if (Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(new ChallengeScoreAction(uuid, newScore));
         }
 
         sendActionBarMessage(p);
     }
+
+
 
     public Challenge getSelectedChallenge() {
         return selectedChallenge;
@@ -555,6 +575,83 @@ public class ChallengesManager {
         stopChallengeTasks();
         init();
 
+    }
+
+    public void startCountdownFromRedis(Challenge challenge, int timeout, int countdown, long timestamp, boolean isOrigin) {
+        stopCurrentChallenge();
+
+        this.isChallengeOrigin = isOrigin;
+
+        this.selectedChallenge = challenge;
+        this.timeout = timeout;
+
+        long now = System.currentTimeMillis();
+        long diff = now - timestamp;
+        int secondsPassed = (int) (diff / 1000L);
+        int remainingCountdown = countdown - secondsPassed;
+
+        if (remainingCountdown < 0)
+            remainingCountdown = 0;
+
+        final int finalTimeout = timeout;
+        final Challenge finalChallenge = challenge;
+        final int finalRemainingCountdown = remainingCountdown;
+
+        this.challengeThread = new Thread(() -> {
+            try {
+                for (int i = finalRemainingCountdown; i > 0; i--) {
+                    TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(i);
+                    sendTitleMessage(
+                            config.getString("messages.title.countdown.title", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()),
+                            config.getString("messages.title.countdown.subtitle", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()),
+                            2, 0, 0
+                    );
+                    sendActionBarMessage(config.getString("messages.action_bar.countdown", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()));
+                    Thread.sleep(1000);
+                }
+
+                this.challengeStarted = true;
+                this.startedTimestamp = System.currentTimeMillis();
+
+                TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(finalTimeout);
+                String message = finalChallenge.getMessage();
+
+                sendTitleMessage(
+                        config.getString("messages.title.start.title", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),
+                        config.getString("messages.title.start.subtitle", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),
+                        config.getInt("messages.title.start.stay"),
+                        config.getInt("messages.title.start.fadeInTick"),
+                        config.getInt("messages.title.start.fadeOutTick")
+                );
+
+                sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message));
+                startActionBarInterval();
+                startFinishTimer("Challenges Sync Start Thread", finalTimeout);
+
+            } catch (InterruptedException e) {
+                this.challengeStarted = false;
+            }
+        }, "Challenges Sync Countdown Thread");
+
+        challengeThread.start();
+    }
+
+    public void setRemoteScore(UUID uuid, int score) {
+        playersProgress.put(uuid, score);
+    }
+
+    public void stopChallengeGlobally() {
+        if (Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(new ChallengeStopAction());
+        }
+        stopCurrentChallenge();
+    }
+
+    public void endChallengeGlobally() {
+        if (Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(new ChallengeEndAction());
+        }
+        finishChallenge();
     }
 
 

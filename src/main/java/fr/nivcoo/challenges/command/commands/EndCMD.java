@@ -1,6 +1,7 @@
 package fr.nivcoo.challenges.command.commands;
 
 import fr.nivcoo.challenges.Challenges;
+import fr.nivcoo.challenges.actions.ChallengeEndAction;
 import fr.nivcoo.challenges.command.CCommand;
 import fr.nivcoo.utilsz.config.Config;
 import org.bukkit.command.CommandSender;
@@ -49,7 +50,8 @@ public class EndCMD implements CCommand {
     @Override
     public void execute(Challenges challenges, CommandSender sender, String[] args) {
         Config config = challenges.getConfiguration();
-        challenges.getChallengesManager().finishChallenge();
+
+        challenges.getChallengesManager().endChallengeGlobally();
         sender.sendMessage(config.getString("messages.commands.success_end"));
 
     }

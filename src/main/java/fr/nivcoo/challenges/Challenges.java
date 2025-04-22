@@ -1,7 +1,6 @@
 package fr.nivcoo.challenges;
 
-import fr.nivcoo.challenges.actions.GlobalResetAction;
-import fr.nivcoo.challenges.actions.RankingUpdateAction;
+import fr.nivcoo.challenges.actions.*;
 import fr.nivcoo.challenges.cache.CacheManager;
 import fr.nivcoo.challenges.challenges.ChallengesManager;
 import fr.nivcoo.challenges.command.commands.*;
@@ -95,6 +94,10 @@ public class Challenges extends JavaPlugin {
             redisChannelRegistry = redisManager.createRegistry("challenges");
             redisChannelRegistry.register(RankingUpdateAction.class);
             redisChannelRegistry.register(GlobalResetAction.class);
+            redisChannelRegistry.register(ChallengeStartAction.class);
+            redisChannelRegistry.register(ChallengeScoreAction.class);
+            redisChannelRegistry.register(ChallengeStopAction.class);
+            redisChannelRegistry.register(ChallengeEndAction.class);
 
             getLogger().info("Redis activé pour Challenges.");
         }
