@@ -59,7 +59,7 @@ public class CacheManager {
         Challenges plugin = Challenges.get();
 
         if (plugin.getChallengesManager() != null) {
-            plugin.getChallengesManager().disablePlugin();
+            plugin.getChallengesManager().stopCurrentChallenge();
         }
 
         db.clearDB();
