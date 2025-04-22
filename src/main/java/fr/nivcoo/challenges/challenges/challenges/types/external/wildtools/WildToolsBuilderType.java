@@ -29,7 +29,7 @@ public class WildToolsBuilderType extends ChallengeType implements Listener {
             return;
         Player p = e.getPlayer();
         Block b = p.getTargetBlock(null, 10);
-        Challenge selectedChallenge = getSeletedChallenge();
+        Challenge selectedChallenge = getSelectedChallenge();
 
         boolean allow = selectedChallenge.isInMaterialsRequirement(b.getType(), b.getData());
         if (allow) {

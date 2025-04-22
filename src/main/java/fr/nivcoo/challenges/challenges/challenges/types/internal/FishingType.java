@@ -22,13 +22,12 @@ public class FishingType extends ChallengeType implements Listener {
     public void onPlayerFishEvent(PlayerFishEvent e) {
         if (shouldIgnore())
             return;
-        Challenge selectedChallenge = getSeletedChallenge();
+        Challenge selectedChallenge = getSelectedChallenge();
         Player p = e.getPlayer();
 
         Entity caught = e.getCaught();
         PlayerFishEvent.State state = e.getState();
-        if (state.equals(PlayerFishEvent.State.CAUGHT_FISH) && caught instanceof Item) {
-            Item itemCaught = (Item) caught;
+        if (state.equals(PlayerFishEvent.State.CAUGHT_FISH) && caught instanceof Item itemCaught) {
             ItemStack is = itemCaught.getItemStack();
             boolean allow = selectedChallenge.isInMaterialsRequirement(is.getType(), is.getData().getData());
             if (allow)

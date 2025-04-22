@@ -21,7 +21,7 @@ public class ConsumeType extends ChallengeType implements Listener {
     public void onPlayerItemConsumeEvent(PlayerItemConsumeEvent e) {
         if (shouldIgnore())
             return;
-        Challenge selectedChallenge = getSeletedChallenge();
+        Challenge selectedChallenge = getSelectedChallenge();
         Player p = e.getPlayer();
 
         ItemStack is = e.getItem();

@@ -28,7 +28,7 @@ public class EnchantAllType extends ChallengeType implements Listener {
     public void onEnchantItemEvent(EnchantItemEvent e) {
         if (shouldIgnore())
             return;
-        Challenge selectedChallenge = getSeletedChallenge();
+        Challenge selectedChallenge = getSelectedChallenge();
 
         Player p = e.getEnchanter();
 
@@ -44,7 +44,7 @@ public class EnchantAllType extends ChallengeType implements Listener {
     public void onInventoryClick(InventoryClickEvent e) {
         if (shouldIgnore())
             return;
-        Challenge selectedChallenge = getSeletedChallenge();
+        Challenge selectedChallenge = getSelectedChallenge();
         HumanEntity ent = e.getWhoClicked();
         if (ent instanceof Player) {
             Player p = (Player) ent;
@@ -64,8 +64,7 @@ public class EnchantAllType extends ChallengeType implements Listener {
                         ItemStack item3 = e.getCurrentItem();
                         if (item3 != null) {
                             ItemMeta meta = item3.getItemMeta();
-                            if (meta instanceof Repairable) {
-                                Repairable repairable = (Repairable) meta;
+                            if (meta instanceof Repairable repairable) {
                                 int repairCost = repairable.getRepairCost();
                                 if (p.getLevel() >= repairCost) {
                                     if(item3.getData() == null)

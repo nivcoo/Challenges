@@ -340,7 +340,7 @@ public class ChallengesManager {
                 String type = point;
                 if (addNumber > 1)
                     type = points;
-                if(addNumber < 0)
+                if (addNumber < 0)
                     addNumber = 0;
                 String pointMessage = config.getString(templatePointPath + "display", String.valueOf(addNumber), type);
                 templateMessage = templateMessage.replace("{3}", pointMessage);
@@ -377,7 +377,7 @@ public class ChallengesManager {
     }
 
     public void sendConsoleCommand(String command, OfflinePlayer player) {
-        if(player == null || player.getName() == null)
+        if (player == null || player.getName() == null)
             return;
         Bukkit.getScheduler().runTask(challenges, () -> Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
                 command.replaceAll("%player%", player.getName())));
@@ -389,26 +389,34 @@ public class ChallengesManager {
     }
 
     public void editScoreToPlayer(Types type, Player p, Location loc, boolean remove, int number) {
-        if (selectedChallenge == null)
-            return;
-        Types selectedChallengeType = selectedChallenge.getChallengeType();
+        if (selectedChallenge == null) return;
 
-        if (remove || (selectedChallengeType.equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
-                || type.equals(Types.BLOCK_BREAK) && selectedChallengeType.equals(Types.BLOCK_PLACE))) {
-            if (loc != null && selectedChallengeType.equals(Types.BLOCK_BREAK))
-                addLocationToBlacklist(loc, p);
+        if (remove && loc != null && type == Types.BLOCK_BREAK) {
+            addLocationToBlacklist(loc, p);
+        }
+
+        if (remove) {
             removeScoreToPlayer(p, number);
             return;
         }
 
-        if (!selectedChallengeType.equals(type) || (loc != null && locationIsBlacklistedForPlayer(loc, p)))
+        if (loc != null && locationIsBlacklistedForPlayer(loc, p)) {
             return;
-        Sound sound = Sound.valueOf(config.getString("sound.add"));
+        }
 
         setScoreToPlayer(p, number);
 
-        p.playSound(p.getLocation(), sound, .4f, 1.7f);
+        String soundName = config.getString("sound.add");
+        if (soundName != null) {
+            try {
+                Sound sound = Sound.valueOf(soundName);
+                p.playSound(p.getLocation(), sound, 0.4f, 1.7f);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
     }
+
+
 
     public boolean locationIsBlacklistedForPlayer(Location loc, Player p) {
         UUID player = blacklistedBlockLocation.get(loc);

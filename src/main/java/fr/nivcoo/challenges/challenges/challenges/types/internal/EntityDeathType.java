@@ -34,7 +34,7 @@ public class EntityDeathType extends ChallengeType implements Listener {
             entityAmount = WildStackerAPI.getEntityAmount(event.getEntity());
         }
 
-        Challenge selectedChallenge = getSeletedChallenge();
+        Challenge selectedChallenge = getSelectedChallenge();
         boolean allow = selectedChallenge.isInRequirements(stringEntity);
         if (allow)
             addScoreToPlayer(p, entityAmount);

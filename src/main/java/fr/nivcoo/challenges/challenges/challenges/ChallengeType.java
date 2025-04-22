@@ -41,15 +41,13 @@ public class ChallengeType {
     }
 
     protected boolean shouldIgnore() {
-        Challenge selectedChallenge = getSeletedChallenge();
-
-        return selectedChallenge == null || (!selectedChallenge.getChallengeType().equals(type)
-                && ((!selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) || !type.equals(Types.BLOCK_PLACE))
-                && (!type.equals(Types.BLOCK_BREAK)
-                || !selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE))));
+        Challenge selectedChallenge = getSelectedChallenge();
+        return selectedChallenge == null ||
+                !selectedChallenge.getChallengeType().equals(type);
     }
 
-    protected Challenge getSeletedChallenge() {
+
+    protected Challenge getSelectedChallenge() {
         return challenges.getChallengesManager().getSelectedChallenge();
     }
 
