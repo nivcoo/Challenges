@@ -5,28 +5,28 @@ import fr.nivcoo.challenges.challenges.Challenge;
 import fr.nivcoo.challenges.utils.time.TimePair;
 import fr.nivcoo.utilsz.config.Config;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.*;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
+
 public class PlaceHolderAPI extends PlaceholderExpansion {
 
-    private Challenges challenges;
-    private Config config;
-
-    public PlaceHolderAPI() {
-        challenges = Challenges.get();
-        config = challenges.getConfiguration();
-    }
-
-    @Override
-    public @NotNull String getAuthor() {
-        return challenges.getDescription().getAuthors().toString();
-    }
+    private final Challenges challenges = Challenges.get();
+    private final Config config = challenges.getConfiguration();
 
     @Override
     public @NotNull String getIdentifier() {
         return "challenges";
+    }
+
+    @Override
+    public @NotNull String getAuthor() {
+        return String.join(", ", challenges.getDescription().getAuthors());
     }
 
     @Override
@@ -36,47 +36,86 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 
     @Override
     public String onRequest(OfflinePlayer player, String identifier) {
+        Player p = player.getPlayer();
 
-        if (identifier.equals("get_classement_score")) {
-            int count = challenges.getCacheManager().getPlayerScore(player.getUniqueId());
-            return String.valueOf(count);
-        } else if (identifier.equals("is_started")) {
-            return String.valueOf(challenges.getChallengesManager().isChallengeStarted());
-        } else if (identifier.equals("current_challenge_message")) {
-            Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
-            if (challenge == null)
-                return config.getString("messages.global.none");
-            return challenge.getMessage();
-        } else if (identifier.equals("current_challenge_count")) {
-            Player p = player.getPlayer();
-            if (p == null)
-                return "0";
-            return String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()));
-        } else if (identifier.equals("current_challenge_place")) {
-            Player p = player.getPlayer();
-            String noneMessage = config.getString("messages.placeholders.current_challenge_place.none");
-            if (p == null)
-                return noneMessage;
-            int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
-            if (place == 0)
-                return noneMessage;
-            return String.valueOf(place);
-        } else if (identifier.startsWith("top_username_")) {
-            int place = Integer.parseInt(identifier.replace("top_username_", ""));
+        return switch (identifier) {
+            case "get_classement_score" -> String.valueOf(challenges.getCacheManager().getPlayerScore(player.getUniqueId()));
+            case "is_started" -> String.valueOf(challenges.getChallengesManager().isChallengeStarted());
+            case "current_challenge_message" -> {
+                Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
+                yield challenge != null ? challenge.getMessage() : config.getString("messages.global.none");
+            }
+            case "current_challenge_score" -> p != null
+                    ? String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()))
+                    : "0";
+            case "current_challenge_place" -> {
+                if (p == null) yield config.getString("messages.placeholders.current_challenge_place.none");
+                int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
+                yield place == 0
+                        ? config.getString("messages.placeholders.current_challenge_place.none")
+                        : String.valueOf(place);
+            }
+            case "current_challenge_countdown" -> {
+                TimePair<Long, String> countdown = challenges.getChallengesManager().getCountdown();
+                String path = "messages.placeholders.current_challenge_countdown.";
+                yield countdown == null
+                        ? config.getString(path + "stop")
+                        : config.getString(path + "started",
+                        String.valueOf(countdown.getFirst()), countdown.getSecond());
+            }
+            default -> handleTopRequest(identifier);
+        };
+    }
+
+    private String handleTopRequest(String identifier) {
+        if (identifier.startsWith("top_username_")) {
+            int place = parsePlace(identifier, "top_username_");
             return challenges.getChallengesManager().getPlayerNameProgressByPlace(place);
-        } else if (identifier.startsWith("top_count_")) {
-            int place = Integer.parseInt(identifier.replace("top_count_", ""));
+        }
+
+        if (identifier.startsWith("top_score_")) {
+            int place = parsePlace(identifier, "top_score_");
             return challenges.getChallengesManager().getPlayerCountProgressByPlace(place);
-        } else if (identifier.equals("current_challenge_countdown")) {
-            TimePair<Long, String> countdown = challenges.getChallengesManager().getCountdown();
-            String countdownPath = "messages.placeholders.current_challenge_countdown.";
-            if (countdown == null)
-                return config.getString(countdownPath + "stop");
-            return config.getString(countdownPath + "started", String.valueOf(countdown.getFirst()),
-                    countdown.getSecond());
+        }
+
+        if (identifier.startsWith("top_global_username_")) {
+            int place = parsePlace(identifier, "top_global_username_");
+            return getGlobalTopName(place);
+        }
+
+        if (identifier.startsWith("top_global_score_")) {
+            int place = parsePlace(identifier, "top_global_score_");
+            return getGlobalTopCount(place);
         }
 
         return null;
     }
 
+    private int parsePlace(String input, String prefix) {
+        try {
+            return Integer.parseInt(input.substring(prefix.length()));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private String getGlobalTopName(int place) {
+        List<Entry<UUID, Integer>> sorted = sortGlobalTop();
+        if (place < 1 || place > sorted.size())
+            return config.getString("messages.global.none");
+        return Bukkit.getOfflinePlayer(sorted.get(place - 1).getKey()).getName();
+    }
+
+    private String getGlobalTopCount(int place) {
+        List<Entry<UUID, Integer>> sorted = sortGlobalTop();
+        if (place < 1 || place > sorted.size())
+            return "0";
+        return String.valueOf(sorted.get(place - 1).getValue());
+    }
+
+    private List<Entry<UUID, Integer>> sortGlobalTop() {
+        return challenges.getCacheManager().getSortedScores().entrySet().stream()
+                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed())
+                .collect(Collectors.toList());
+    }
 }
