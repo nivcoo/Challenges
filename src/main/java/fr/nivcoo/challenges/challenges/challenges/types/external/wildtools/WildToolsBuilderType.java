@@ -25,7 +25,7 @@ public class WildToolsBuilderType extends ChallengeType implements Listener {
         List<Location> locs = e.getBlocks();
         for (Location loc : locs)
             loc.getBlock().setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Player p = e.getPlayer();
         Block b = p.getTargetBlock(null, 10);

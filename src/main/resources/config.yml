@@ -1,88 +1,159 @@
 # %chatreactions_get_score%
 
-words_file_name: "words/dictionary.txt"
+database:
+  type: "sqlite" # ou "mysql"
+  sqlite:
+    path: "database.db"
+  mysql:
+    host: "localhost"
+    port: 3306
+    database: "challenges"
+    username: "root"
+    password: "password"
 
-interval:
-  # in seconds
-  min: 900
-  max: 1200
+redis:
+  enabled: false
+  host: "127.0.0.1"
+  port: 6379
+  username: ""
+  password: ""
+
+# in seconds, set 0 to disable and use command
+interval: 0
 
 # in seconds
-time_limit: 30
+timeout: 1200
 
-sounds:
-  start: ENTITY_EXPERIENCE_ORB_PICKUP
-  win: ENTITY_EXPERIENCE_ORB_PICKUP
+#number of second for countdown
+countdown_number: 10
+
+players_needed: 1
+
+sound:
+  messages: ENTITY_EXPERIENCE_ORB_PICKUP
+  add: ENTITY_EXPERIENCE_ORB_PICKUP
+  remove: BLOCK_ANVIL_BREAK
+
+# if the hour isn't into the list the challenges isn't start, useless if interval = 0, set [] to disable
+whitelisted_hours: []
+
+blacklisted_world:
+  - invest
+  - auto_jump
+
+challenges:
+  '0':
+    message: "Casser de la Stone"
+    challenge: "BLOCK_BREAK"
+    requirement:
+      - "STONE:0"
 
 rewards:
+  give_for_all_reward_to_top: false
+  for_all:
+    message: "1.000$ + 1 Pièce du Marché Noir"
+    commands:
+      - "eco give %player% 1000"
+      - "cr give to %player% piece 1"
+  add_all_top_into_db: true
   top:
     '1':
-      message: "1.500$"
+      message: "1 Clé Démoniaque + 7.500$"
       commands:
-        - "eco give %player% 1500"
+        - "cr give to %player% demoniaque 1"
+        - "eco give %player% 7500"
     '2':
-      message: "1.000$"
+      message: "2 Clés Bestial + 5.000$"
       commands:
-        - "eco give %player% 1000"
+        - "cr give to %player% bestial 2"
+        - "eco give %player% 5000"
     '3':
-      message: "500$"
+      message: "1 Clé Bestial + 2.500$"
       commands:
-        - "eco give %player% 500"
+        - "cr give to %player% bestial 1"
+        - "eco give %player% 2500"
+    '4':
+      message: "2 Clés Saisonnière + 2.500$"
+      commands:
+        - "cr give to %player% saisonniere 2"
+        - "eco give %player% 2500"
+    '5':
+      message: "2 Clés de Quête + 2.500$"
+      commands:
+        - "cr give to %player% quete 2"
+        - "eco give %player% 2500"
 
 messages:
+  placeholders:
+    current_challenge_countdown:
+      started: "{0} {1}"
+      stop: "&c✖"
+    current_challenge_place:
+      none: "&f??"
   commands:
-    incorrect_usage: "&fCorrect Usage : /{0}"
+    incorrect_usage: "&fCorrect Usage : {0}"
     no_permission: "&fCommande inconnue."
     help:
       - "&7&m------------------&8[&6Help Panel&8]&7&m------------------"
-      - "{!chatreactions.command.start}&6/chatreactions start &estart a reaction !"
-      - "{!chatreactions.command.stop}&6/chatreactions stop &estop the current reaction !"
+      - "{!challenges.command.start}&6/clgs start &estart a challenge !"
+      - "{!challenges.command.stop}&6/clgs stop &estop the current challenge !"
+      - "{!challenges.command.end}&6/clgs end &estop the current challenge with rewards !"
+      - "{!challenges.command.start_interval}&6/clgs start_interval &estart challenge interval !"
+      - "{!challenges.command.stop_interval}&6/clgs stop_interval &estop challenge interval !"
+      - "{!challenges.command.reload}&6/clgs reload &ereload the plugin !"
+      - "{!challenges.command.delete_datas}&6/clgs delete_datas &eclear the db !"
       - "&7&m----------------------------------------------"
+    success_start: "&7[&c&lES&7] Le challenge a été lancé avec succès !"
+    success_stop: "&7[&c&lES&7] Le challenge a été stoppé avec succès !"
+    success_end: "&7[&c&lES&7] Le challenge a été stoppé et les récompenses ont été données avec succès !"
+    success_start_interval: "&7[&c&lES&7] L'interval des challenges a été lancé avec succès !"
+    success_stop_interval: "&7[&c&lES&7] L'interval des challenges a été stoppé avec succès !"
+    success_reload: "&7[&c&lES&7] Le plugin vient d'être reload !"
+    success_delete_datas: "&7[&c&lES&7] La base de données vient d'être vidée !"
+  global:
+    none: "&c✖"
+    second: "seconde"
+    seconds: "secondes"
+    minute: "minute"
+    minutes: "minutes"
+    hour: "heure"
+    hours: "heures"
+  title:
     start:
-      success: "&7[&c&lES&7] La Réaction a été lancée avec succès !"
-    stop:
-      success: "&7[&c&lES&7] La Réaction a été stoppée avec succès !"
+      stay: 10
+      fadeInTick: 10
+      fadeOutTick: 20
+      title: "&eVous avez &6{0} {1}"
+      subtitle: "&epour : &a{2} &e!"
+    countdown:
+      title: "&aDéfi Journalier"
+      subtitle: "&eLancement dans &6&n{0} {1}&e !"
+  action_bar:
+    running:
+      message: "&a&n{0} :&b&l {1} &7&l| &e&nTemps restant :&6&l {2} {3} {4} &b/defi"
+      place: "&7&l| &a&nPlace :&b&l {0}"
+    countdown: "&e&lLancement du défi dans &6&l{0} {1}&e&l !"
   chat:
-    start_messages:
-      hover:
-        - "&f{0}"
-      messages:
-        - '                                                       '
-        - '&7&l---»                                               '
-        - '&7[&6&l!&7] &b&lRÉACTION CHAT&7 [&6&l!&7]                                  '
-        - '                                                       '
-        - '&f&l|&a&l Passe ta souris dans le chat et recopies         '
-        - '&a&lle mot affiché.                                             '
-        - '                                                       '
-        - '&f&l|&e Vous devez être le plus rapide pour remporter               '
-        - '&eles récompenses &e!                                            '
-        - '                                                       '
-        - '&f&l|&b Nombre de Gagnants : 3 &7(/reaction)                                      '
-        - '&7&l---»                                                   '
-        - '                                                       '
-
-    no_player: '&7[&c&lRéaction&7] &cPersonne n''a trouvé le mot à temps.'
+    start_message: "&7[&c&lES&7] &eVous avez &6{0} {1} &epour : &c{2} !&a Soyez le meilleur pour obtenir des récompenses ! &b/defi\n \n&c&lATTENTION : &cLes blocs précédement posés ne fonctionnent pas dans les défis !"
+    no_player: "&7[&c&lES&7] Aucun joueur n'a fait le défi !"
     top:
-      template: "&f&l| &bN°{0} &e{1} &7- &a{2}s &7- &d{3} {4}"
+      template: "&f&l| &bN°{0} &e{1} &7- &6{2} &a{3} &7- &d{4}"
       template_points:
         point: "Point"
         points: "Points"
-        display: "&f&l| &b(+{0} {1})"
+        display: "(+{0} {1})"
         default: ""
-      send_total_message: false
-      # send these messages if send_total_message is set to false
-      no_all_player: "&7[&c&lRéaction&7] &cToutes les récompenses n'ont pas été données à temps !"
-      all_rewards: "&7[&c&lRéaction&7] &aToutes les récompenses ont été données !"
       message:
-        - '&r '
         - "&7---»"
-        - "&r "
-        - "&dLa réaction est terminé !"
-        - "&7 Le mot était : {0} &7(&b/reaction&7)"
-        - "&r "
-        - "&a&l&nCLASSEMENT RÉACTIONS :"
-        - "&r "
+        - ""
+        - "&dLe défi Journalier est terminé !"
+        - "&7 ({0})"
+        - ""
+        - "&a&l&nCLASSEMENT DÉFI :"
+        - ""
         - "{1}"
-        - "&r "
+        - ""
         - "&7---»"
-        - '&r '
+  rewards:
+    for_all: "&7[&c&lES&7] &eVous avez participé au défi, vous gagnez &a{0}&e !"
+    top: "&7[&c&lES&7] &eVous avez participé au défi, vous êtes &aTOP {0} &e! Vous gagnez : &a{1} &e!"

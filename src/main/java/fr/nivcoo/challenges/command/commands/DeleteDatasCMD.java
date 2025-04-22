@@ -28,7 +28,7 @@ public class DeleteDatasCMD implements CCommand {
 
     @Override
     public String getDescription() {
-        return null;
+        return "Réinitialise entièrement le système de challenges et vide tous les scores (local et réseau).";
     }
 
     @Override
@@ -46,10 +46,12 @@ public class DeleteDatasCMD implements CCommand {
         return true;
     }
 
+    @Override
     public void execute(Challenges challenges, CommandSender sender, String[] args) {
         Config config = challenges.getConfiguration();
-        challenges.getDatabase().clearDB();
-        challenges.reload();
+
+        challenges.getCacheManager().resetAllData();
+
         sender.sendMessage(config.getString("messages.commands.success_delete_datas"));
     }
 
@@ -57,5 +59,4 @@ public class DeleteDatasCMD implements CCommand {
     public List<String> tabComplete(Challenges plugin, CommandSender sender, String[] args) {
         return new ArrayList<>();
     }
-
 }

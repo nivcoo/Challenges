@@ -20,7 +20,7 @@ public class EntityDeathType extends ChallengeType implements Listener {
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         LivingEntity entity = event.getEntity();
         Player p = entity.getKiller();

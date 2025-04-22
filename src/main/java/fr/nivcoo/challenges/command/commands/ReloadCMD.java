@@ -46,6 +46,7 @@ public class ReloadCMD implements CCommand {
         return true;
     }
 
+    @Override
     public void execute(Challenges challenges, CommandSender sender, String[] args) {
         Config config = challenges.getConfiguration();
         challenges.reload();

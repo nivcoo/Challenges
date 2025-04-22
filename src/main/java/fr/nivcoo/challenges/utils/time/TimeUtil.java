@@ -19,8 +19,8 @@ public class TimeUtil {
     }
 
     public TimePair<Long, String> getTimeAndTypeBySecond(long s) {
-        long m = Math.round(s / 60);
-        long h = Math.round(m / 60);
+        long m = Math.round((float) s / 60);
+        long h = Math.round((float) m / 60);
         long number = 0;
         String type = null;
         if (h >= 1) {

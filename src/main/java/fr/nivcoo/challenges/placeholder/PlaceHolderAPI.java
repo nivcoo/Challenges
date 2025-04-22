@@ -38,7 +38,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     public String onRequest(OfflinePlayer player, String identifier) {
 
         if (identifier.equals("get_classement_score")) {
-            int count = challenges.getCacheManager().getPlayerCount(player.getUniqueId());
+            int count = challenges.getCacheManager().getPlayerScore(player.getUniqueId());
             return String.valueOf(count);
         } else if (identifier.equals("is_started")) {
             return String.valueOf(challenges.getChallengesManager().isChallengeStarted());

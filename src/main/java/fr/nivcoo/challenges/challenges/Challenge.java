@@ -7,7 +7,7 @@ import java.util.List;
 
 public class Challenge {
 
-    private Types challengeType;
+    private final Types challengeType;
 
     private List<String> requirements;
     private String message;
@@ -59,11 +59,11 @@ public class Challenge {
             if ((d == null || data == d) && material.equals(m))
                 return true;
         }
-        return requirements.size() == 0;
+        return requirements.isEmpty();
     }
 
     public boolean isInRequirements(String value) {
-        return requirements.size() == 0 || requirements.contains(value);
+        return requirements.isEmpty() || requirements.contains(value);
     }
 
 }

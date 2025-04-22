@@ -24,7 +24,7 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 
         Block newBlock = e.getBlock();
         newBlock.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Challenge selectedChallenge = getSeletedChallenge();
 

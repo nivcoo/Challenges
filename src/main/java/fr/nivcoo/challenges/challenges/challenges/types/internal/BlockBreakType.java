@@ -24,9 +24,9 @@ public class BlockBreakType extends ChallengeType implements Listener {
     public void onBlockBreakEvent(BlockBreakEvent e) {
         Block b = e.getBlock();
         List<MetadataValue> metas = b.getMetadata(blacklistMeta);
-        boolean isBlacklisted = metas.size() > 0 && metas.get(0).asBoolean();
+        boolean isBlacklisted = !metas.isEmpty() && metas.get(0).asBoolean();
         b.removeMetadata(blacklistMeta, challenges);
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Challenge selectedChallenge = getSeletedChallenge();
 

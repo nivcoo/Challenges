@@ -6,6 +6,8 @@ import fr.nivcoo.challenges.challenges.challenges.types.external.wildtools.WildT
 import fr.nivcoo.challenges.challenges.challenges.types.internal.*;
 import fr.nivcoo.challenges.utils.time.TimePair;
 import fr.nivcoo.utilsz.config.Config;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
@@ -108,7 +110,7 @@ public class ChallengesManager {
                     Calendar rightNow = Calendar.getInstance();
                     int hour = rightNow.get(Calendar.HOUR_OF_DAY);
                     if (isChallengeStarted()
-                            || (whitelistedHours.size() > 0 && !whitelistedHours.contains(hour) && interval > 0)
+                            || (!whitelistedHours.isEmpty() && !whitelistedHours.contains(hour) && interval > 0)
                             || playerNeeded > Bukkit.getServer().getOnlinePlayers().size())
                         continue;
                     startChallenge();
@@ -227,9 +229,19 @@ public class ChallengesManager {
     }
 
     public void sendTitleMessage(String title, String subtitle, int time, int fadeInTick, int fadeOutTick) {
+        Component titleComponent = LegacyComponentSerializer.legacySection().deserialize(title);
+        Component subtitleComponent = LegacyComponentSerializer.legacySection().deserialize(subtitle);
+
         for (Player p : Bukkit.getOnlinePlayers()) {
-            p.resetTitle();
-            p.sendTitle(title, subtitle, fadeInTick, time * 20, fadeOutTick);
+            p.showTitle(net.kyori.adventure.title.Title.title(
+                    titleComponent,
+                    subtitleComponent,
+                    net.kyori.adventure.title.Title.Times.times(
+                            java.time.Duration.ofMillis(fadeInTick * 50L),
+                            java.time.Duration.ofSeconds(time),
+                            java.time.Duration.ofMillis(fadeOutTick * 50L)
+                    )
+            ));
         }
     }
 
@@ -267,7 +279,8 @@ public class ChallengesManager {
     }
 
     public void sendActionBarMessage(Player p, String message) {
-        p.sendActionBar(message);
+        Component component = LegacyComponentSerializer.legacySection().deserialize(message);
+        p.sendActionBar(component);
     }
 
     public int getScoreOfPlayer(UUID uuid) {
@@ -327,9 +340,11 @@ public class ChallengesManager {
                 String type = point;
                 if (addNumber > 1)
                     type = points;
+                if(addNumber < 0)
+                    addNumber = 0;
                 String pointMessage = config.getString(templatePointPath + "display", String.valueOf(addNumber), type);
                 templateMessage = templateMessage.replace("{3}", pointMessage);
-                challenges.getCacheManager().updatePlayerCount(uuid, addNumber);
+                challenges.getCacheManager().updatePlayerScore(uuid, addNumber);
             } else {
                 templateMessage = templateMessage.replace("{3}", config.getString(templatePointPath + "default"));
             }
@@ -362,6 +377,8 @@ public class ChallengesManager {
     }
 
     public void sendConsoleCommand(String command, OfflinePlayer player) {
+        if(player == null || player.getName() == null)
+            return;
         Bukkit.getScheduler().runTask(challenges, () -> Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
                 command.replaceAll("%player%", player.getName())));
 
@@ -531,5 +548,6 @@ public class ChallengesManager {
         init();
 
     }
+
 
 }

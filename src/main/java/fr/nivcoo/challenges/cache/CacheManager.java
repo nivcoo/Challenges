@@ -1,55 +1,69 @@
 package fr.nivcoo.challenges.cache;
 
 import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.utils.Database;
-import org.bukkit.Bukkit;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
+import fr.nivcoo.challenges.actions.GlobalResetAction;
+import fr.nivcoo.challenges.utils.DatabaseChallenges;
 
 import java.util.HashMap;
 import java.util.UUID;
 
-public class CacheManager implements Listener {
+public class CacheManager {
 
-    private Challenges challenges;
-
-    private Database db;
-
-    private HashMap<UUID, Integer> playersClassementCache;
+    private final DatabaseChallenges db;
+    private HashMap<UUID, Integer> playersRankingCache;
 
     public CacheManager() {
-        challenges = Challenges.get();
-        db = challenges.getDatabase();
-        playersClassementCache = new HashMap<>();
-        getAllPlayersCount();
+        Challenges challenges = Challenges.get();
+        this.db = challenges.getDatabaseChallenges();
+        playersRankingCache = new HashMap<>();
+        loadAllScores();
+
     }
 
-    public void getAllPlayersCount() {
-        playersClassementCache = db.getAllPlayersCount(Bukkit.getServer().getOnlinePlayers());
+    public void loadAllScores() {
+        playersRankingCache = new HashMap<>(db.getAllPlayersScore());
     }
 
-    public void updatePlayerCount(UUID uuid, int addNumber) {
-        int newCount = getPlayerCount(uuid) + addNumber;
-        db.updatePlayerCount(uuid, newCount);
-        playersClassementCache.put(uuid, newCount);
+
+    public void updatePlayerScore(UUID uuid, int addNumber) {
+        int newCount = getPlayerScore(uuid) + addNumber;
+        db.updatePlayerScore(uuid, newCount);
+        playersRankingCache.put(uuid, newCount);
     }
 
-    public int getPlayerCount(UUID uuid) {
-        Integer count = playersClassementCache.get(uuid);
-        if (count == null) {
-            count = db.getPlayerCount(uuid);
-            playersClassementCache.put(uuid, count);
+    public int getPlayerScore(UUID uuid) {
+        return playersRankingCache.getOrDefault(uuid, 0);
+    }
+
+    public void updateFromRedis(UUID uuid, int count) {
+        playersRankingCache.put(uuid, count);
+    }
+
+    public void resetAllData() {
+        resetAllData(true);
+    }
+
+    public void resetAllData(boolean propagate) {
+        performReset();
+
+        if (propagate && Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(new GlobalResetAction());
         }
-        return count;
+
+        Challenges.get().getLogger().info("[Challenges] Réinitialisation " + (propagate ? "globale" : "locale") + " effectuée.");
     }
 
-    @EventHandler
-    public void onPlayerJoinEvent(PlayerJoinEvent e) {
-        UUID uuid = e.getPlayer().getUniqueId();
-        int count = db.getPlayerCount(uuid);
-        playersClassementCache.put(uuid, count);
+    private void performReset() {
+        Challenges plugin = Challenges.get();
 
+        if (plugin.getChallengesManager() != null) {
+            plugin.getChallengesManager().disablePlugin();
+        }
+
+        db.clearDB();
+        playersRankingCache.clear();
+
+        plugin.reload();
     }
 
 }

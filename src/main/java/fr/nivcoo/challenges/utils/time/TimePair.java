@@ -2,9 +2,9 @@ package fr.nivcoo.challenges.utils.time;
 
 public class TimePair<U, V> {
 
-    private U first;
+    private final U first;
 
-    private V second;
+    private final V second;
 
     public TimePair(U first, V second) {
         this.first = first;

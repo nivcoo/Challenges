@@ -19,13 +19,13 @@ public class ConsumeType extends ChallengeType implements Listener {
     @SuppressWarnings("deprecation")
     @EventHandler
     public void onPlayerItemConsumeEvent(PlayerItemConsumeEvent e) {
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Challenge selectedChallenge = getSeletedChallenge();
         Player p = e.getPlayer();
 
         ItemStack is = e.getItem();
-        if (is == null)
+        if (is.getData() == null)
             return;
 
         Material type = is.getType();

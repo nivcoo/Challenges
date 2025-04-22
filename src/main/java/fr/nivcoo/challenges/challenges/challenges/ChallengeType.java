@@ -40,13 +40,13 @@ public class ChallengeType {
         challenges.getChallengesManager().editScoreToPlayer(type, p, location, remove, number);
     }
 
-    protected boolean checkRequirements() {
+    protected boolean shouldIgnore() {
         Challenge selectedChallenge = getSeletedChallenge();
 
-        return selectedChallenge != null && (selectedChallenge.getChallengeType().equals(type)
-                || (selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) && type.equals(Types.BLOCK_PLACE)
-                || type.equals(Types.BLOCK_BREAK)
-                && selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE)));
+        return selectedChallenge == null || (!selectedChallenge.getChallengeType().equals(type)
+                && ((!selectedChallenge.getChallengeType().equals(Types.BLOCK_BREAK) || !type.equals(Types.BLOCK_PLACE))
+                && (!type.equals(Types.BLOCK_BREAK)
+                || !selectedChallenge.getChallengeType().equals(Types.BLOCK_PLACE))));
     }
 
     protected Challenge getSeletedChallenge() {

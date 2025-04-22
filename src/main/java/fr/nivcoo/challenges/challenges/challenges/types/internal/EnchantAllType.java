@@ -26,7 +26,7 @@ public class EnchantAllType extends ChallengeType implements Listener {
     @SuppressWarnings("deprecation")
     @EventHandler
     public void onEnchantItemEvent(EnchantItemEvent e) {
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Challenge selectedChallenge = getSeletedChallenge();
 
@@ -42,7 +42,7 @@ public class EnchantAllType extends ChallengeType implements Listener {
     @SuppressWarnings("deprecation")
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Challenge selectedChallenge = getSeletedChallenge();
         HumanEntity ent = e.getWhoClicked();
@@ -68,6 +68,8 @@ public class EnchantAllType extends ChallengeType implements Listener {
                                 Repairable repairable = (Repairable) meta;
                                 int repairCost = repairable.getRepairCost();
                                 if (p.getLevel() >= repairCost) {
+                                    if(item3.getData() == null)
+                                        return;
                                     boolean allow = selectedChallenge.isInMaterialsRequirement(item3.getType(),
                                             item3.getData().getData());
                                     if (allow)

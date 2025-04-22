@@ -20,7 +20,7 @@ public class FishingType extends ChallengeType implements Listener {
     @SuppressWarnings("deprecation")
     @EventHandler
     public void onPlayerFishEvent(PlayerFishEvent e) {
-        if (!checkRequirements())
+        if (shouldIgnore())
             return;
         Challenge selectedChallenge = getSeletedChallenge();
         Player p = e.getPlayer();
