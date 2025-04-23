@@ -77,6 +77,13 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 yield getRewardMessageForPlace(challenge, place);
             }
 
+            case "current_challenge_for_all_message" -> {
+                Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
+                yield challenge != null && challenge.getForAllMessage() != null && !challenge.getForAllMessage().isBlank()
+                        ? challenge.getForAllMessage()
+                        : config.getString("messages.global.none");
+            }
+
             default -> {
                 if (identifier.startsWith("current_challenge_reward_")) {
                     int place = parsePlace(identifier, "current_challenge_reward_");

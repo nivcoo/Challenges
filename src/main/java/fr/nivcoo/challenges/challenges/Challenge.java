@@ -15,12 +15,21 @@ public class Challenge {
 
     private final List<TopReward> topRewards;
 
-    public Challenge(Types challengeType, List<String> requirements, String message, boolean countPreviousBlocks, List<TopReward> topRewards) {
+    private final String forAllMessage;
+    private final List<String> forAllCommands;
+    private final boolean giveForAllRewardToTop;
+
+    public Challenge(Types challengeType, List<String> requirements, String message, boolean countPreviousBlocks,
+                     List<TopReward> topRewards,
+                     String forAllMessage, List<String> forAllCommands, boolean giveForAllRewardToTop) {
         this.challengeType = challengeType;
         this.requirements = requirements;
         this.message = message;
         this.countPreviousBlocks = countPreviousBlocks;
         this.topRewards = topRewards;
+        this.forAllMessage = forAllMessage;
+        this.forAllCommands = forAllCommands;
+        this.giveForAllRewardToTop = giveForAllRewardToTop;
     }
 
     public Types getChallengeType() {
@@ -37,6 +46,18 @@ public class Challenge {
 
     public boolean isCountPreviousBlocks() {
         return countPreviousBlocks;
+    }
+
+    public String getForAllMessage() {
+        return forAllMessage;
+    }
+
+    public List<String> getForAllCommands() {
+        return forAllCommands;
+    }
+
+    public boolean isGiveForAllRewardToTop() {
+        return giveForAllRewardToTop;
     }
 
     public boolean isInMaterialsRequirement(Material material, int data) {

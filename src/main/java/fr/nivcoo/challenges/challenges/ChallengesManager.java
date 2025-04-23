@@ -106,7 +106,13 @@ public class ChallengesManager {
             String message = config.getString(challengePath + ".message");
             boolean countPreviousBlocks = config.getBoolean(challengePath + ".count_previous_blocks");
 
-            Challenge challenge = new Challenge(type, requirements, message, countPreviousBlocks, globalTopRewards);
+            String forAllMessage = config.getString("rewards.for_all.message");
+            List<String> forAllCommands = config.getStringList("rewards.for_all.commands");
+            boolean giveToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
+
+            Challenge challenge = new Challenge(type, requirements, message, countPreviousBlocks, globalTopRewards,
+                    forAllMessage, forAllCommands, giveToTop);
+
             challengesList.add(challenge);
         }
     }
@@ -284,6 +290,21 @@ public class ChallengesManager {
         String message = buildTopMessage(sorted);
         sendGlobalMessage(message);
 
+        if (selectedChallenge != null && selectedChallenge.getForAllMessage() != null) {
+            String forAllMessage = selectedChallenge.getForAllMessage();
+            boolean giveToTop = selectedChallenge.isGiveForAllRewardToTop();
+            List<UUID> eligiblePlayers = sorted.keySet().stream()
+                    .filter(integer -> giveToTop || !selectedChallenge.getTopRewards().stream().map(TopReward::place).toList().contains(getPlaceOfUUID(integer)))
+                    .toList();
+
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (eligiblePlayers.contains(player.getUniqueId())) {
+                    player.sendMessage(forAllMessage);
+                }
+            }
+        }
+
+
         if (!isChallengeOrigin) return;
 
         distributeTopRewards(sorted);
@@ -357,10 +378,10 @@ public class ChallengesManager {
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
-        List<String> forAllCommands = config.getStringList("rewards.for_all.commands");
-        boolean giveToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
         boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
-        String forAllMsg = config.getString("rewards.for_all.message");
+        List<String> forAllCommands = selectedChallenge.getForAllCommands();
+        boolean giveToTop = selectedChallenge.isGiveForAllRewardToTop();
+        String forAllMsg = selectedChallenge.getForAllMessage();
 
         int place = 0;
         for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
@@ -482,6 +503,16 @@ public class ChallengesManager {
         }
     }
 
+    public int getPlaceOfUUID(UUID uuid) {
+        int place = 0;
+        for (UUID p : getSortPlayersProgress().keySet()) {
+            place++;
+            if (uuid.equals(p))
+                return place;
+        }
+        return 0;
+    }
+
     public void clearProgress() {
         playersProgress = new LinkedHashMap<>();
         blacklistedBlockLocation = new HashMap<>();
@@ -516,9 +547,16 @@ public class ChallengesManager {
     }
 
     public void disablePlugin() {
+        if (isChallengeStarted() && isChallengeOrigin) {
+            if (Challenges.get().getRedisChannelRegistry() != null) {
+                Challenges.get().getRedisChannelRegistry().publish(new ChallengeEndAction());
+            }
+        }
+
         finishChallenge();
         stopChallengeTasks();
     }
+
 
     public boolean isChallengeStarted() {
         return challengeStarted;
