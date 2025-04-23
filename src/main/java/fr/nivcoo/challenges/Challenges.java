@@ -1,8 +1,12 @@
 package fr.nivcoo.challenges;
 
 import fr.nivcoo.challenges.actions.*;
+import fr.nivcoo.challenges.adapter.ChallengeAdapter;
+import fr.nivcoo.challenges.adapter.TopRewardAdapter;
 import fr.nivcoo.challenges.cache.CacheManager;
+import fr.nivcoo.challenges.challenges.Challenge;
 import fr.nivcoo.challenges.challenges.ChallengesManager;
+import fr.nivcoo.challenges.challenges.TopReward;
 import fr.nivcoo.challenges.command.commands.*;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
 import fr.nivcoo.challenges.utils.DatabaseChallenges;
@@ -11,6 +15,7 @@ import fr.nivcoo.utilsz.commands.CommandManager;
 import fr.nivcoo.utilsz.config.Config;
 import fr.nivcoo.utilsz.database.DatabaseManager;
 import fr.nivcoo.utilsz.database.DatabaseType;
+import fr.nivcoo.utilsz.redis.RedisAdapterRegistry;
 import fr.nivcoo.utilsz.redis.RedisChannelRegistry;
 import fr.nivcoo.utilsz.redis.RedisManager;
 import org.bukkit.Bukkit;
@@ -98,6 +103,10 @@ public class Challenges extends JavaPlugin {
             redisChannelRegistry.register(ChallengeScoreAction.class);
             redisChannelRegistry.register(ChallengeStopAction.class);
             redisChannelRegistry.register(ChallengeEndAction.class);
+
+            RedisAdapterRegistry.register(TopReward.class, new TopRewardAdapter());
+            RedisAdapterRegistry.register(Challenge.class, new ChallengeAdapter());
+
 
             getLogger().info("Redis activé pour Challenges.");
         }

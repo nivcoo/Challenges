@@ -55,7 +55,7 @@ challenges:
   '0':
     message: "Casser de la Stone"
     challenge: "BLOCK_BREAK"
-    requirement:
+    requirements:
       - "STONE:0"
 
 rewards:

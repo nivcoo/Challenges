@@ -83,22 +83,34 @@ public class ChallengesManager {
         challengesList = new ArrayList<>();
 
         List<String> keys = config.getKeys("challenges");
-        for (String key : keys) {
+        if (keys.isEmpty()) {
+            challenges.getLogger().info("No challenges found in the configuration file.");
+            return;
+        }
 
+        List<TopReward> globalTopRewards = new ArrayList<>();
+        List<String> topKeys = config.getKeys("rewards.top");
+
+        for (String placeKey : topKeys) {
+            int place = Integer.parseInt(placeKey);
+            String rewardMsg = config.getString("rewards.top." + placeKey + ".message");
+            List<String> rewardCmds = config.getStringList("rewards.top." + placeKey + ".commands");
+            globalTopRewards.add(new TopReward(place, rewardMsg, rewardCmds));
+        }
+
+        for (String key : keys) {
             String challengePath = "challenges." + key;
             String challengeType = config.getString(challengePath + ".challenge");
             Types type = Types.valueOf(challengeType.toUpperCase());
-            Challenge challenge = new Challenge(type);
+            List<String> requirements = config.getStringList(challengePath + ".requirements");
+            String message = config.getString(challengePath + ".message");
+            boolean countPreviousBlocks = config.getBoolean(challengePath + ".count_previous_blocks");
+
+            Challenge challenge = new Challenge(type, requirements, message, countPreviousBlocks, globalTopRewards);
             challengesList.add(challenge);
-
-            challenge.setRequirements(config.getStringList(challengePath + ".requirement"));
-
-            challenge.setMessage(config.getString(challengePath + ".message"));
-
-            challenge.setCountPreviousBlocks(config.getBoolean(challengePath + ".count_previous_blocks"));
         }
-
     }
+
 
     public void startChallengeInterval() {
         stopChallengeTasks();
@@ -133,16 +145,16 @@ public class ChallengesManager {
         stopCurrentChallenge();
 
         Challenge c = challengesList.get(new Random().nextInt(challengesList.size()));
+        if (c == null)
+            return;
+
         this.selectedChallenge = c;
 
         long now = System.currentTimeMillis();
         int countdown = countdownNumber;
 
         ChallengeStartAction action = new ChallengeStartAction(
-                c.getMessage(),
-                c.getChallengeType().name(),
-                c.getRequirements(),
-                c.countPreviousBlocks(),
+                c,
                 timeout,
                 countdown,
                 now
@@ -261,8 +273,7 @@ public class ChallengesManager {
     }
 
     public void sendTop() {
-        if (getSelectedChallenge() == null)
-            return;
+        if (getSelectedChallenge() == null) return;
 
         Map<UUID, Integer> sorted = getSortPlayersProgress();
         if (sorted.isEmpty()) {
@@ -270,22 +281,21 @@ public class ChallengesManager {
             return;
         }
 
-        // Toujours afficher le top à tout le monde
         String message = buildTopMessage(sorted);
-
-        // Affichage global (même pour les serveurs secondaires)
         sendGlobalMessage(message);
 
-        // Récompenses uniquement si serveur émetteur
         if (!isChallengeOrigin) return;
 
         distributeTopRewards(sorted);
     }
 
+
     public String buildTopMessage(Map<UUID, Integer> sorted) {
-        List<String> topKeys = config.getKeys("rewards.top");
-        int winnersCount = topKeys.size();
-        String templatePointPath = "messages.chat.top.template_points.";
+        List<TopReward> rewards = selectedChallenge.getTopRewards();
+        Map<Integer, TopReward> rewardMap = rewards.stream()
+                .collect(Collectors.toMap(TopReward::place, r -> r));
+
+        String templatePath = "messages.chat.top.template_points.";
         StringBuilder globalTop = new StringBuilder();
 
         int place = 0;
@@ -300,33 +310,32 @@ public class ChallengesManager {
                     player.getName(),
                     String.valueOf(score));
 
-            boolean isTop = place <= winnersCount;
+            TopReward reward = rewardMap.get(place);
 
-            if (isTop) {
-                String rewardMessage = config.getString("rewards.top." + place + ".message");
-                baseMessage = baseMessage.replace("{4}", rewardMessage);
+            if (reward != null) {
+                baseMessage = baseMessage.replace("{4}", reward.message());
 
                 boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
-                int addNumber = addAllTop ? winnersCount - place + 1 : (place == 1 ? 1 : 0);
+                int addNumber = addAllTop ? rewards.size() - place + 1 : (place == 1 ? 1 : 0);
 
                 if (addNumber > 0) {
                     String label = (addNumber > 1)
-                            ? config.getString(templatePointPath + "points")
-                            : config.getString(templatePointPath + "point");
-                    String pointText = config.getString(templatePointPath + "display",
+                            ? config.getString(templatePath + "points")
+                            : config.getString(templatePath + "point");
+                    String pointText = config.getString(templatePath + "display",
                             String.valueOf(addNumber), label);
                     baseMessage = baseMessage.replace("{3}", pointText);
                 } else {
-                    baseMessage = baseMessage.replace("{3}", config.getString(templatePointPath + "default"));
+                    baseMessage = baseMessage.replace("{3}", config.getString(templatePath + "default", ""));
                 }
+
             } else {
-                baseMessage = baseMessage.replace("{3}", config.getString(templatePointPath + "default"));
+                baseMessage = baseMessage.replace("{3}", config.getString(templatePath + "default", ""));
                 baseMessage = baseMessage.replace("{4}", "");
             }
 
             globalTop.append(baseMessage);
-            if (place < winnersCount && place < sorted.size())
-                globalTop.append("§r \n");
+            if (place < sorted.size()) globalTop.append("§r \n");
         }
 
         StringBuilder finalMessage = new StringBuilder();
@@ -334,66 +343,61 @@ public class ChallengesManager {
         int i = 0;
         for (String line : format) {
             finalMessage.append(line
-                    .replace("{0}", getSelectedChallenge().getMessage())
+                    .replace("{0}", selectedChallenge.getMessage())
                     .replace("{1}", globalTop.toString()));
-            if (i++ < format.size() - 1)
-                finalMessage.append("§r \n");
+            if (i++ < format.size() - 1) finalMessage.append("§r \n");
         }
 
         return finalMessage.toString();
     }
 
+
     public void distributeTopRewards(Map<UUID, Integer> sorted) {
-        List<String> keys = config.getKeys("rewards.top");
-        List<String> commandsForAll = config.getStringList("rewards.for_all");
-        boolean giveForAllRewardToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
+        List<TopReward> rewards = selectedChallenge.getTopRewards();
+        Map<Integer, TopReward> rewardMap = rewards.stream()
+                .collect(Collectors.toMap(TopReward::place, r -> r));
+
+        List<String> forAllCommands = config.getStringList("rewards.for_all.commands");
+        boolean giveToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
         boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+        String forAllMsg = config.getString("rewards.for_all.message");
 
-        int winnersCount = keys.size();
         int place = 0;
-
         for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
             place++;
             UUID uuid = entry.getKey();
             OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
             Player online = player.getPlayer();
 
-            boolean isTop = place <= winnersCount;
-            boolean outOfTop = !isTop;
+            boolean isTop = rewardMap.containsKey(place);
 
-            // Récompenses pour tous
-            for (String cmd : commandsForAll) {
-                if (isTop && giveForAllRewardToTop) {
+            if (!isTop || giveToTop) {
+                for (String cmd : forAllCommands) {
                     sendConsoleCommand(cmd, player);
-                } else if (outOfTop && online != null) {
-                    online.sendMessage(config.getString("messages.rewards.for_all",
-                            config.getString("rewards.for_all.message")));
+                }
+                if (online != null) {
+                    online.sendMessage(config.getString("messages.rewards.for_all", forAllMsg));
                 }
             }
 
-            // Récompenses de classement
             if (!isTop) continue;
 
-            String rewardsTopPath = "rewards.top." + place;
-            String messageTop = config.getString(rewardsTopPath + ".message");
-
-            for (String cmd : config.getStringList(rewardsTopPath + ".commands")) {
+            TopReward reward = rewardMap.get(place);
+            for (String cmd : reward.commands()) {
                 sendConsoleCommand(cmd, player);
-                if (online != null) {
-                    online.sendMessage(config.getString("messages.rewards.top", String.valueOf(place), messageTop));
-                }
+            }
+
+            if (online != null) {
+                online.sendMessage(config.getString("messages.rewards.top",
+                        String.valueOf(place), reward.message()));
             }
 
             if (addAllTop || place == 1) {
-                int addNumber = addAllTop ? winnersCount - place + 1 : 1;
-                addNumber = Math.max(addNumber, 0);
-                challenges.getCacheManager().updatePlayerScore(uuid, addNumber);
+                int addPoints = addAllTop ? rewards.size() - place + 1 : 1;
+                challenges.getCacheManager().updatePlayerScore(uuid, Math.max(addPoints, 0));
             }
         }
     }
-
-
-
 
 
     public void sendConsoleCommand(String command, OfflinePlayer player) {
@@ -463,7 +467,6 @@ public class ChallengesManager {
 
         sendActionBarMessage(p);
     }
-
 
 
     public Challenge getSelectedChallenge() {

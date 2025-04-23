@@ -11,8 +11,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 
 import java.util.List;
@@ -44,7 +42,7 @@ public class BlockBreakType extends ChallengeType implements Listener {
         boolean isBlacklisted = !metas.isEmpty() && metas.getFirst().asBoolean();
         b.removeMetadata(blacklistMeta, challenges);
 
-        if (!getSelectedChallenge().countPreviousBlocks() && isBlacklisted)
+        if (!getSelectedChallenge().isCountPreviousBlocks() && isBlacklisted)
             return;
 
         if (getSelectedChallenge().isInMaterialsRequirement(type, data))

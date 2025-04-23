@@ -9,12 +9,18 @@ public class Challenge {
 
     private final Types challengeType;
 
-    private List<String> requirements;
-    private String message;
-    private boolean countPreviousBlocks;
+    private final List<String> requirements;
+    private final String message;
+    private final boolean countPreviousBlocks;
 
-    public Challenge(Types challengeType) {
+    private final List<TopReward> topRewards;
+
+    public Challenge(Types challengeType, List<String> requirements, String message, boolean countPreviousBlocks, List<TopReward> topRewards) {
         this.challengeType = challengeType;
+        this.requirements = requirements;
+        this.message = message;
+        this.countPreviousBlocks = countPreviousBlocks;
+        this.topRewards = topRewards;
     }
 
     public Types getChallengeType() {
@@ -29,19 +35,7 @@ public class Challenge {
         return message;
     }
 
-    public void setRequirements(List<String> requirements) {
-        this.requirements = requirements;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public void setCountPreviousBlocks(boolean countPreviousBlocks) {
-        this.countPreviousBlocks = countPreviousBlocks;
-    }
-
-    public boolean countPreviousBlocks() {
+    public boolean isCountPreviousBlocks() {
         return countPreviousBlocks;
     }
 
@@ -60,6 +54,10 @@ public class Challenge {
                 return true;
         }
         return requirements.isEmpty();
+    }
+
+    public List<TopReward> getTopRewards() {
+        return topRewards;
     }
 
     public boolean isInRequirements(String value) {

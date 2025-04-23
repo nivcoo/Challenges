@@ -2,6 +2,7 @@ package fr.nivcoo.challenges.placeholder;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.Challenge;
+import fr.nivcoo.challenges.challenges.TopReward;
 import fr.nivcoo.challenges.utils.time.TimePair;
 import fr.nivcoo.utilsz.config.Config;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
@@ -63,7 +64,30 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                         : config.getString(path + "started",
                         String.valueOf(countdown.getFirst()), countdown.getSecond());
             }
-            default -> handleTopRequest(identifier);
+
+            case "current_challenge_reward" -> {
+                if (p == null) yield config.getString("messages.global.none");
+
+                int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
+                if (place == 0) yield config.getString("messages.global.none");
+
+                Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
+                if (challenge == null) yield config.getString("messages.global.none");
+
+                yield getRewardMessageForPlace(challenge, place);
+            }
+
+            default -> {
+                if (identifier.startsWith("current_challenge_reward_")) {
+                    int place = parsePlace(identifier, "current_challenge_reward_");
+                    Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
+                    if (challenge == null || place <= 0)
+                        yield config.getString("messages.global.none");
+                    yield getRewardMessageForPlace(challenge, place);
+                }
+
+                yield handleTopRequest(identifier);
+            }
         };
     }
 
@@ -118,4 +142,13 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed())
                 .collect(Collectors.toList());
     }
+
+    private String getRewardMessageForPlace(Challenge challenge, int place) {
+        return challenge.getTopRewards().stream()
+                .filter(r -> r.place() == place)
+                .map(TopReward::message)
+                .findFirst()
+                .orElse(config.getString("messages.global.none"));
+    }
+
 }
