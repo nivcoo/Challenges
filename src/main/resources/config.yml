@@ -1,4 +1,14 @@
-# %chatreactions_get_score%
+# PLACEHOLDER:
+# %challenges_get_classement_score%
+# %challenges_is_started%
+# %challenges_top_username_1%
+# %challenges_top_count_2%
+# %challenges_top_global_username_1%
+# %challenges_top_global_count_2%
+# %challenges_current_challenge_message%
+# %challenges_current_challenge_count%
+# %challenges_current_challenge_place%
+# %challenges_current_challenge_countdown%
 
 database:
   type: "sqlite" # ou "mysql"
