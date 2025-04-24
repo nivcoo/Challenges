@@ -35,6 +35,7 @@ public class Challenges extends JavaPlugin {
     private TimeUtil timeUtil;
     private CommandManager commandManager;
     private RedisChannelRegistry redisChannelRegistry;
+    private RedisManager redisManager;
 
     @Override
     public void onEnable() {
@@ -94,7 +95,7 @@ public class Challenges extends JavaPlugin {
 
     private void setupRedis() {
         if (config.getBoolean("redis.enabled")) {
-            RedisManager redisManager = new RedisManager(this, config.getString("redis.host"), config.getInt("redis.port"), config.getString("redis.username"), config.getString("redis.password"));
+            redisManager = new RedisManager(this, config.getString("redis.host"), config.getInt("redis.port"), config.getString("redis.username"), config.getString("redis.password"));
 
             redisChannelRegistry = redisManager.createRegistry("challenges");
             redisChannelRegistry.register(RankingUpdateAction.class);
@@ -117,6 +118,8 @@ public class Challenges extends JavaPlugin {
         if (challengesManager != null) {
             challengesManager.disablePlugin();
         }
+
+        if (redisManager != null) redisManager.close();
     }
 
     public void reload() {
