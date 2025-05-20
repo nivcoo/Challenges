@@ -72,7 +72,7 @@ public class Challenges extends JavaPlugin {
     }
 
     private void setupDatabase() {
-        String type = config.getString("database.type", "sqlite").toLowerCase();
+        String type = config.getString("database.type").toLowerCase();
         String dbName = config.getString("database.mysql.database", "challenges");
 
         DatabaseType dbType = switch (type) {
