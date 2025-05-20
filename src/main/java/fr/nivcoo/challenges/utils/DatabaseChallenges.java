@@ -5,6 +5,7 @@ import fr.nivcoo.challenges.actions.RankingUpdateAction;
 import fr.nivcoo.utilsz.database.ColumnDefinition;
 import fr.nivcoo.utilsz.database.DatabaseManager;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -26,9 +27,10 @@ public class DatabaseChallenges {
     }
 
     public void updatePlayerScore(UUID uuid, int score) {
-        try (PreparedStatement ps = db.prepareStatement(
-                "REPLACE INTO challenge_ranking (uuid, score) VALUES (?, ?);"
-        )) {
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "REPLACE INTO challenge_ranking (uuid, score) VALUES (?, ?);"
+             )) {
             ps.setString(1, uuid.toString());
             ps.setInt(2, score);
             ps.executeUpdate();
@@ -43,7 +45,8 @@ public class DatabaseChallenges {
 
     public int getPlayerScore(UUID uuid) {
         int count = 0;
-        try (PreparedStatement ps = db.prepareStatement("SELECT score FROM challenge_ranking WHERE uuid = ?")) {
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT score FROM challenge_ranking WHERE uuid = ?")) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -58,7 +61,8 @@ public class DatabaseChallenges {
 
     public Map<UUID, Integer> getAllPlayersScore() {
         Map<UUID, Integer> counts = new HashMap<>();
-        try (PreparedStatement ps = db.prepareStatement("SELECT * FROM challenge_ranking");
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT * FROM challenge_ranking");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 UUID uuid = UUID.fromString(rs.getString("uuid"));
@@ -72,7 +76,8 @@ public class DatabaseChallenges {
     }
 
     public void clearDB() {
-        try (PreparedStatement ps = db.prepareStatement("DELETE FROM challenge_ranking;")) {
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement("DELETE FROM challenge_ranking;")) {
             ps.executeUpdate();
         } catch (SQLException e) {
             Challenges.get().getLogger().severe("Failed to clear challenge ranking: " + e.getMessage());
