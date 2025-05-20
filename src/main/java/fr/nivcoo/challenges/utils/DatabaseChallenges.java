@@ -4,11 +4,11 @@ import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.actions.RankingUpdateAction;
 import fr.nivcoo.utilsz.database.ColumnDefinition;
 import fr.nivcoo.utilsz.database.DatabaseManager;
-import org.bukkit.entity.Player;
 
-import java.sql.*;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class DatabaseChallenges {
 
@@ -45,9 +45,10 @@ public class DatabaseChallenges {
         int count = 0;
         try (PreparedStatement ps = db.prepareStatement("SELECT score FROM challenge_ranking WHERE uuid = ?")) {
             ps.setString(1, uuid.toString());
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                count = rs.getInt("score");
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    count = rs.getInt("score");
+                }
             }
         } catch (SQLException e) {
             Challenges.get().getLogger().severe("Failed to get player count: " + e.getMessage());
@@ -57,8 +58,8 @@ public class DatabaseChallenges {
 
     public Map<UUID, Integer> getAllPlayersScore() {
         Map<UUID, Integer> counts = new HashMap<>();
-        try (PreparedStatement ps = db.prepareStatement("SELECT * FROM challenge_ranking")) {
-            ResultSet rs = ps.executeQuery();
+        try (PreparedStatement ps = db.prepareStatement("SELECT * FROM challenge_ranking");
+             ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 UUID uuid = UUID.fromString(rs.getString("uuid"));
                 int count = rs.getInt("score");
