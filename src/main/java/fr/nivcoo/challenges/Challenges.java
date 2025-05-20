@@ -73,7 +73,7 @@ public class Challenges extends JavaPlugin {
 
     private void setupDatabase() {
         String type = config.getString("database.type").toLowerCase();
-        String dbName = config.getString("database.mysql.database", "challenges");
+        String dbName = config.getString("database.mysql.database");
 
         DatabaseType dbType = switch (type) {
             case "mysql" -> DatabaseType.MYSQL;
@@ -81,7 +81,7 @@ public class Challenges extends JavaPlugin {
             default -> DatabaseType.SQLITE;
         };
 
-        String sqlitePath = new File(getDataFolder(), config.getString("database.sqlite.path", "challenges.db")).getPath();
+        String sqlitePath = new File(getDataFolder(), config.getString("database.sqlite.path")).getPath();
 
         DatabaseManager databaseManager = new DatabaseManager(dbType, config.getString("database.mysql.host"), config.getInt("database.mysql.port"), dbName, config.getString("database.mysql.username"), config.getString("database.mysql.password"), sqlitePath);
 
