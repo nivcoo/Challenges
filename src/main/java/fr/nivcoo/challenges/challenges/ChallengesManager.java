@@ -185,6 +185,8 @@ public class ChallengesManager {
     }
 
     public void finishChallenge() {
+        if (!isChallengeStarted())
+            return;
         sendTop();
         stopCurrentChallenge();
     }
@@ -478,6 +480,7 @@ public class ChallengesManager {
     }
 
     public void setScoreToPlayer(Player p, int value) {
+        if (selectedChallenge == null) return;
         UUID uuid = p.getUniqueId();
         int newScore = playersProgress.getOrDefault(uuid, 0) + value;
         playersProgress.put(uuid, newScore);
@@ -495,6 +498,7 @@ public class ChallengesManager {
     }
 
     public void sendGlobalMessage(String message) {
+        if (selectedChallenge == null) return;
         Sound sound = Sound.valueOf(config.getString("sound.messages"));
         for (Player p : Bukkit.getServer().getOnlinePlayers()) {
             p.sendMessage(message);
@@ -559,7 +563,7 @@ public class ChallengesManager {
 
 
     public boolean isChallengeStarted() {
-        return challengeStarted;
+        return challengeStarted && selectedChallenge != null;
     }
 
     public LinkedHashMap<UUID, Integer> getSortPlayersProgress() {
@@ -615,7 +619,6 @@ public class ChallengesManager {
     public void reload() {
         stopChallengeTasks();
         init();
-
     }
 
     public void startCountdownFromRedis(Challenge challenge, int timeout, int countdown, long timestamp, boolean isOrigin) {
@@ -678,6 +681,8 @@ public class ChallengesManager {
     }
 
     public void setRemoteScore(UUID uuid, int score) {
+        if (!isChallengeStarted())
+            return;
         playersProgress.put(uuid, score);
     }
 
