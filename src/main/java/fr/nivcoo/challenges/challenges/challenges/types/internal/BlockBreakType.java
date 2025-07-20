@@ -33,8 +33,10 @@ public class BlockBreakType extends ChallengeType implements Listener {
         Location loc = b.getLocation();
 
         if (isConflictWithPlace()) {
-            challenges.getChallengesManager().addLocationToBlacklist(loc, p);
-            removeScoreToPlayer(p);
+            if (getSelectedChallenge().isInMaterialsRequirement(type, data)) {
+                challenges.getChallengesManager().addLocationToBlacklist(loc, p);
+                removeScoreToPlayer(p);
+            }
             return;
         }
 

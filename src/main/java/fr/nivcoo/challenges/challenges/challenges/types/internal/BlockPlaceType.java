@@ -38,8 +38,10 @@ public class BlockPlaceType extends ChallengeType implements Listener {
         block.setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
 
         if (isConflictWithBreak()) {
-            challenges.getChallengesManager().addLocationToBlacklist(loc, p);
-            removeScoreToPlayer(p);
+            if (getSelectedChallenge().isInMaterialsRequirement(newMat, data)) {
+                challenges.getChallengesManager().addLocationToBlacklist(loc, p);
+                removeScoreToPlayer(p);
+            }
             return;
         }
 
