@@ -252,7 +252,7 @@ public class ChallengesManager {
                 String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type);
         int place = getPlaceOfPlayer(p);
         if (place == 0)
-            message = message.replace("{4}", "");
+            message = message.replace("{4} ", "");
         else {
             message = message.replace("{4}", config.getString(runningPath + "place", String.valueOf(place)));
         }
