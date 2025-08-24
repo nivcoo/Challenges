@@ -24,6 +24,11 @@ public class DatabaseChallenges {
                 new ColumnDefinition("uuid", "TEXT", "PRIMARY KEY"),
                 new ColumnDefinition("score", "INTEGER", "DEFAULT 0")
         ));
+        db.createTable("challenge_players", List.of(
+                new ColumnDefinition("uuid", "TEXT", "PRIMARY KEY"),
+                new ColumnDefinition("name", "TEXT")
+        ));
+
     }
 
     public void updatePlayerScore(UUID uuid, int score) {
@@ -83,5 +88,33 @@ public class DatabaseChallenges {
             Challenges.get().getLogger().severe("Failed to clear challenge ranking: " + e.getMessage());
         }
     }
+
+    public void savePlayerName(UUID uuid, String name) {
+        if (name == null || name.isBlank()) return;
+        String sql = "INSERT INTO challenge_players (uuid, name) VALUES (?, ?) "
+                + "ON CONFLICT(uuid) DO UPDATE SET name = excluded.name";
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, uuid.toString());
+            ps.setString(2, name);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Challenges.get().getLogger().severe("Failed to save player name: " + e.getMessage());
+        }
+    }
+
+    public String getPlayerName(UUID uuid) {
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT name FROM challenge_players WHERE uuid = ?")) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("name");
+            }
+        } catch (SQLException e) {
+            Challenges.get().getLogger().severe("Failed to load player name: " + e.getMessage());
+        }
+        return null;
+    }
+
 
 }

@@ -1,10 +1,7 @@
 package fr.nivcoo.challenges.challenges;
 
 import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.actions.ChallengeEndAction;
-import fr.nivcoo.challenges.actions.ChallengeScoreAction;
-import fr.nivcoo.challenges.actions.ChallengeStartAction;
-import fr.nivcoo.challenges.actions.ChallengeStopAction;
+import fr.nivcoo.challenges.actions.*;
 import fr.nivcoo.challenges.challenges.challenges.Types;
 import fr.nivcoo.challenges.challenges.challenges.types.external.wildtools.WildToolsBuilderType;
 import fr.nivcoo.challenges.challenges.challenges.types.internal.*;
@@ -21,6 +18,7 @@ import org.bukkit.event.Listener;
 
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class ChallengesManager {
@@ -38,7 +36,7 @@ public class ChallengesManager {
     private LinkedHashMap<UUID, Integer> playersProgress;
     private Long startedTimestamp;
     private HashMap<Location, UUID> blacklistedBlockLocation;
-    private final Map<UUID, String> nameCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<UUID, String> nameCache = new ConcurrentHashMap<>();
 
     private int interval;
     private int timeout;
@@ -80,22 +78,30 @@ public class ChallengesManager {
         String cached = nameCache.get(uuid);
         if (cached != null) return cached;
 
+        String dbName = challenges.getDatabaseChallenges().getPlayerName(uuid);
+        if (dbName != null && !dbName.isBlank()) {
+            nameCache.put(uuid, dbName);
+            return dbName;
+        }
+
         Player online = Bukkit.getPlayer(uuid);
         if (online != null) {
-            nameCache.put(uuid, online.getName());
-            return online.getName();
+            String n = online.getName();
+            nameCache.put(uuid, n);
+            challenges.getDatabaseChallenges().savePlayerName(uuid, n);
+            return n;
         }
 
-        OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
-        String name = op.getName();
-        if (name != null && !name.isEmpty()) {
-            nameCache.put(uuid, name);
-            return name;
+        String off = Bukkit.getOfflinePlayer(uuid).getName();
+        if (off != null && !off.isBlank()) {
+            nameCache.put(uuid, off);
+            challenges.getDatabaseChallenges().savePlayerName(uuid, off);
+            return off;
         }
 
-        String fallback = uuid.toString().substring(0, 8);
-        nameCache.put(uuid, fallback);
-        return fallback;
+        String fb = uuid.toString().substring(0, 8);
+        nameCache.put(uuid, fb);
+        return fb;
     }
 
     private Sound safeSound(String path) {
@@ -519,16 +525,26 @@ public class ChallengesManager {
 
     public void setScoreToPlayer(Player p, int value) {
         if (selectedChallenge == null) return;
-        nameCache.put(p.getUniqueId(), p.getName());
+
         UUID uuid = p.getUniqueId();
+        String name = p.getName();
+        nameCache.put(uuid, name);
+        Challenges.get().getDatabaseChallenges().savePlayerName(uuid, name);
+
         int newScore = playersProgress.getOrDefault(uuid, 0) + value;
         playersProgress.put(uuid, newScore);
 
         if (Challenges.get().getRedisChannelRegistry() != null) {
             Challenges.get().getRedisChannelRegistry().publish(new ChallengeScoreAction(uuid, newScore));
+            Challenges.get().getRedisChannelRegistry().publish(new PlayerNameUpdateAction(uuid, name));
         }
 
         sendActionBarMessage(p);
+    }
+
+    public void cacheName(UUID uuid, String name) {
+        if (name == null || name.isBlank()) return;
+        nameCache.put(uuid, name);
     }
 
 
