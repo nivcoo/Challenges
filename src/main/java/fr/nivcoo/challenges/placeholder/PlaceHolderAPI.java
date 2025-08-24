@@ -139,8 +139,10 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
         List<Entry<UUID, Integer>> sorted = sortGlobalTop();
         if (place < 1 || place > sorted.size())
             return config.getString("messages.global.none");
-        return Bukkit.getOfflinePlayer(sorted.get(place - 1).getKey()).getName();
+        UUID uuid = sorted.get(place - 1).getKey();
+        return challenges.getChallengesManager().resolvePlayerName(uuid);
     }
+
 
     private String getGlobalTopCount(int place) {
         List<Entry<UUID, Integer>> sorted = sortGlobalTop();

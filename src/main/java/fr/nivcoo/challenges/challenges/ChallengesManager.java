@@ -38,6 +38,7 @@ public class ChallengesManager {
     private LinkedHashMap<UUID, Integer> playersProgress;
     private Long startedTimestamp;
     private HashMap<Location, UUID> blacklistedBlockLocation;
+    private final Map<UUID, String> nameCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private int interval;
     private int timeout;
@@ -74,6 +75,39 @@ public class ChallengesManager {
         registerEvent(new ConsumeType());
         registerEvent(new WildToolsBuilderType());
     }
+
+    public String resolvePlayerName(UUID uuid) {
+        String cached = nameCache.get(uuid);
+        if (cached != null) return cached;
+
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null) {
+            nameCache.put(uuid, online.getName());
+            return online.getName();
+        }
+
+        OfflinePlayer op = Bukkit.getOfflinePlayer(uuid);
+        String name = op.getName();
+        if (name != null && !name.isEmpty()) {
+            nameCache.put(uuid, name);
+            return name;
+        }
+
+        String fallback = uuid.toString().substring(0, 8);
+        nameCache.put(uuid, fallback);
+        return fallback;
+    }
+
+    private Sound safeSound(String path) {
+        String s = config.getString(path);
+        if (s == null) return null;
+        try {
+            return Sound.valueOf(s);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
 
     public void registerEvent(Listener type) {
         Bukkit.getPluginManager().registerEvents(type, challenges);
@@ -314,7 +348,7 @@ public class ChallengesManager {
 
 
     public String buildTopMessage(Map<UUID, Integer> sorted) {
-        List<TopReward> rewards = selectedChallenge.getTopRewards();
+        List<TopReward> rewards = Optional.ofNullable(selectedChallenge.getTopRewards()).orElse(Collections.emptyList());
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
@@ -326,11 +360,10 @@ public class ChallengesManager {
             place++;
             UUID uuid = entry.getKey();
             int score = entry.getValue();
-            OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
 
             String baseMessage = config.getString("messages.chat.top.template",
                     String.valueOf(place),
-                    player.getName(),
+                    resolvePlayerName(uuid),
                     String.valueOf(score));
 
             TopReward reward = rewardMap.get(place);
@@ -376,12 +409,12 @@ public class ChallengesManager {
 
 
     public void distributeTopRewards(Map<UUID, Integer> sorted) {
-        List<TopReward> rewards = selectedChallenge.getTopRewards();
+        List<TopReward> rewards = Optional.ofNullable(selectedChallenge.getTopRewards()).orElse(Collections.emptyList());
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
         boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
-        List<String> forAllCommands = selectedChallenge.getForAllCommands();
+        List<String> forAllCommands = Optional.ofNullable(selectedChallenge.getForAllCommands()).orElse(Collections.emptyList());
         boolean giveToTop = selectedChallenge.isGiveForAllRewardToTop();
         String forAllMsg = selectedChallenge.getForAllMessage();
 
@@ -424,12 +457,20 @@ public class ChallengesManager {
 
 
     public void sendConsoleCommand(String command, OfflinePlayer player) {
-        if (player == null || player.getName() == null)
-            return;
-        Bukkit.getScheduler().runTask(challenges, () -> Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(),
-                command.replaceAll("%player%", player.getName())));
+        if (player == null) return;
+        UUID uuid = player.getUniqueId();
+        String name = (player.getName() != null && !player.getName().isEmpty())
+                ? player.getName()
+                : resolvePlayerName(uuid);
 
+        if (name == null || name.isEmpty()) return;
+
+        String cmd = command.replace("%player%", name);
+        Bukkit.getScheduler().runTask(challenges, () ->
+                Bukkit.getServer().dispatchCommand(Bukkit.getServer().getConsoleSender(), cmd)
+        );
     }
+
 
     public void editScoreToPlayer(Types type, Player p, Location loc) {
         editScoreToPlayer(type, p, loc, false, 1);
@@ -453,13 +494,9 @@ public class ChallengesManager {
 
         setScoreToPlayer(p, number);
 
-        String soundName = config.getString("sound.add");
-        if (soundName != null) {
-            try {
-                Sound sound = Sound.valueOf(soundName);
-                p.playSound(p.getLocation(), sound, 0.4f, 1.7f);
-            } catch (IllegalArgumentException ignored) {
-            }
+        Sound sound = safeSound("sound.add");
+        if (sound != null) {
+            p.playSound(p.getLocation(), sound, 0.4f, 1.7f);
         }
     }
 
@@ -474,13 +511,15 @@ public class ChallengesManager {
     }
 
     public void removeScoreToPlayer(Player p, int number) {
-        Sound sound = Sound.valueOf(config.getString("sound.remove"));
         setScoreToPlayer(p, -number);
-        p.playSound(p.getLocation(), sound, .4f, 1.7f);
+        Sound sound = safeSound("sound.remove");
+        if (sound != null) p.playSound(p.getLocation(), sound, .4f, 1.7f);
     }
+
 
     public void setScoreToPlayer(Player p, int value) {
         if (selectedChallenge == null) return;
+        nameCache.put(p.getUniqueId(), p.getName());
         UUID uuid = p.getUniqueId();
         int newScore = playersProgress.getOrDefault(uuid, 0) + value;
         playersProgress.put(uuid, newScore);
@@ -499,11 +538,10 @@ public class ChallengesManager {
 
     public void sendGlobalMessage(String message) {
         if (selectedChallenge == null) return;
-        Sound sound = Sound.valueOf(config.getString("sound.messages"));
+        Sound sound = safeSound("sound.messages");
         for (Player p : Bukkit.getServer().getOnlinePlayers()) {
             p.sendMessage(message);
-            p.playSound(p.getLocation(), sound, .4f, 1.7f);
-
+            if (sound != null) p.playSound(p.getLocation(), sound, .4f, 1.7f);
         }
     }
 
@@ -588,14 +626,10 @@ public class ChallengesManager {
 
     public String getPlayerNameProgressByPlace(int place) {
         Entry<UUID, Integer> playerProgress = getPlayerProgressByPlace(place);
-
-        if (playerProgress == null)
-            return config.getString("messages.global.none");
-        else {
-            return Bukkit.getOfflinePlayer(playerProgress.getKey()).getName();
-        }
-
+        if (playerProgress == null) return config.getString("messages.global.none");
+        return resolvePlayerName(playerProgress.getKey());
     }
+
 
     public String getPlayerCountProgressByPlace(int place) {
         Entry<UUID, Integer> playerProgress = getPlayerProgressByPlace(place);
