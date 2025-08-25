@@ -88,15 +88,13 @@ public class ChallengesManager {
         Player online = Bukkit.getPlayer(uuid);
         if (online != null) {
             String n = online.getName();
-            nameCache.put(uuid, n);
-            challenges.getDatabaseChallenges().savePlayerName(uuid, n);
+            cacheName(uuid, n);
             return n;
         }
 
         String off = Bukkit.getOfflinePlayer(uuid).getName();
         if (off != null && !off.isBlank()) {
-            nameCache.put(uuid, off);
-            challenges.getDatabaseChallenges().savePlayerName(uuid, off);
+            cacheName(uuid, off);
             return off;
         }
 
@@ -536,24 +534,37 @@ public class ChallengesManager {
         if (selectedChallenge == null) return;
 
         UUID uuid = p.getUniqueId();
-        String name = p.getName();
-        nameCache.put(uuid, name);
-        Challenges.get().getDatabaseChallenges().savePlayerName(uuid, name);
+        cacheName(uuid, p.getName());
 
         int newScore = playersProgress.getOrDefault(uuid, 0) + value;
         playersProgress.put(uuid, newScore);
 
         if (Challenges.get().getRedisChannelRegistry() != null) {
             Challenges.get().getRedisChannelRegistry().publish(new ChallengeScoreAction(uuid, newScore));
-            Challenges.get().getRedisChannelRegistry().publish(new PlayerNameUpdateAction(uuid, name));
         }
 
         sendActionBarMessage(p);
     }
 
+    public void cacheNameRemote(UUID uuid, String name) {
+        if (name == null || name.isBlank()) return;
+        String cached = nameCache.get(uuid);
+        if (name.equals(cached)) return;
+        nameCache.put(uuid, name);
+    }
+
     public void cacheName(UUID uuid, String name) {
         if (name == null || name.isBlank()) return;
+
+        String cached = nameCache.get(uuid);
+        if (name.equals(cached)) return;
+
         nameCache.put(uuid, name);
+        Challenges.get().getDatabaseChallenges().savePlayerName(uuid, name);
+
+        if (Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(new PlayerNameUpdateAction(uuid, name));
+        }
     }
 
 
