@@ -116,5 +116,22 @@ public class DatabaseChallenges {
         return null;
     }
 
+    public Map<UUID, String> getAllPlayerNames() {
+        Map<UUID, String> all = new HashMap<>();
+        try (Connection con = db.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT uuid, name FROM challenge_players");
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                UUID u = UUID.fromString(rs.getString("uuid"));
+                String n = rs.getString("name");
+                all.put(u, n);
+            }
+        } catch (SQLException e) {
+            Challenges.get().getLogger().severe("Failed to load all player names: " + e.getMessage());
+        }
+        return all;
+    }
+
+
 
 }

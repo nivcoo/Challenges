@@ -43,7 +43,7 @@ public class ChallengeType {
     protected boolean shouldIgnore() {
         Challenge selectedChallenge = getSelectedChallenge();
         return selectedChallenge == null ||
-                !selectedChallenge.getChallengeType().equals(type);
+                !selectedChallenge.challengeType().equals(type);
     }
 
 

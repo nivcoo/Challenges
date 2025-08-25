@@ -6,7 +6,6 @@ import fr.nivcoo.challenges.challenges.TopReward;
 import fr.nivcoo.challenges.utils.time.TimePair;
 import fr.nivcoo.utilsz.config.Config;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
-import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -49,7 +48,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
             case "is_started" -> String.valueOf(challenges.getChallengesManager().isChallengeStarted());
             case "current_challenge_message" -> {
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
-                yield challenge != null ? challenge.getMessage() : config.getString("messages.global.none");
+                yield challenge != null ? challenge.message() : config.getString("messages.global.none");
             }
             case "current_challenge_score" -> p != null
                     ? String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()))
@@ -84,8 +83,8 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 
             case "current_challenge_for_all_message" -> {
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
-                yield challenge != null && challenge.getForAllMessage() != null && !challenge.getForAllMessage().isBlank()
-                        ? challenge.getForAllMessage()
+                yield challenge != null && challenge.forAllMessage() != null && !challenge.forAllMessage().isBlank()
+                        ? challenge.forAllMessage()
                         : config.getString("messages.global.none");
             }
 
@@ -158,7 +157,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     }
 
     private String getRewardMessageForPlace(Challenge challenge, int place) {
-        return challenge.getTopRewards().stream()
+        return challenge.topRewards().stream()
                 .filter(r -> r.place() == place)
                 .map(TopReward::message)
                 .findFirst()

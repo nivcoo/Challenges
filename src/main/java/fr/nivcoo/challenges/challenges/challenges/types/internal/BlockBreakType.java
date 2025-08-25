@@ -44,7 +44,7 @@ public class BlockBreakType extends ChallengeType implements Listener {
         boolean isBlacklisted = !metas.isEmpty() && metas.getFirst().asBoolean();
         b.removeMetadata(blacklistMeta, challenges);
 
-        if (!getSelectedChallenge().isCountPreviousBlocks() && isBlacklisted)
+        if (!getSelectedChallenge().countPreviousBlocks() && isBlacklisted)
             return;
 
         if (getSelectedChallenge().isInMaterialsRequirement(type, data))
@@ -53,7 +53,7 @@ public class BlockBreakType extends ChallengeType implements Listener {
 
     private boolean isConflictWithPlace() {
         Challenge c = getSelectedChallenge();
-        return c != null && c.getChallengeType() == Types.BLOCK_PLACE;
+        return c != null && c.challengeType() == Types.BLOCK_PLACE;
     }
 
 }

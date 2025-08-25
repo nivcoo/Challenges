@@ -62,6 +62,7 @@ public class ChallengesManager {
         blacklistedBlockLocation = new HashMap<>();
         challengeStarted = false;
         startChallengeInterval();
+        preloadNamesFromDB();
     }
 
     public void registerEvents() {
@@ -102,6 +103,14 @@ public class ChallengesManager {
         String fb = uuid.toString().substring(0, 8);
         nameCache.put(uuid, fb);
         return fb;
+    }
+
+    public void preloadNamesFromDB() {
+        Map<UUID, String> all = Challenges.get().getDatabaseChallenges().getAllPlayerNames();
+        all.forEach((u, n) -> {
+            if (n != null && !n.isBlank()) nameCache.put(u, n);
+        });
+        Challenges.get().getLogger().info("[Challenges] Loaded " + nameCache.size() + " player names into cache.");
     }
 
     private Sound safeSound(String path) {
@@ -288,7 +297,7 @@ public class ChallengesManager {
             return;
         }
         String runningPath = "messages.action_bar.running.";
-        String message = config.getString(runningPath + "message", selectedChallenge.getMessage(),
+        String message = config.getString(runningPath + "message", selectedChallenge.message(),
                 String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type);
         int place = getPlaceOfPlayer(p);
         if (place == 0)
@@ -332,11 +341,11 @@ public class ChallengesManager {
         String message = buildTopMessage(sorted);
         sendGlobalMessage(message);
 
-        if (selectedChallenge != null && selectedChallenge.getForAllMessage() != null) {
-            String forAllMessage = selectedChallenge.getForAllMessage();
-            boolean giveToTop = selectedChallenge.isGiveForAllRewardToTop();
+        if (selectedChallenge != null && selectedChallenge.forAllMessage() != null) {
+            String forAllMessage = selectedChallenge.forAllMessage();
+            boolean giveToTop = selectedChallenge.giveForAllRewardToTop();
             List<UUID> eligiblePlayers = sorted.keySet().stream()
-                    .filter(integer -> giveToTop || !selectedChallenge.getTopRewards().stream().map(TopReward::place).toList().contains(getPlaceOfUUID(integer)))
+                    .filter(integer -> giveToTop || !selectedChallenge.topRewards().stream().map(TopReward::place).toList().contains(getPlaceOfUUID(integer)))
                     .toList();
 
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -354,7 +363,7 @@ public class ChallengesManager {
 
 
     public String buildTopMessage(Map<UUID, Integer> sorted) {
-        List<TopReward> rewards = Optional.ofNullable(selectedChallenge.getTopRewards()).orElse(Collections.emptyList());
+        List<TopReward> rewards = Optional.ofNullable(selectedChallenge.topRewards()).orElse(Collections.emptyList());
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
@@ -405,7 +414,7 @@ public class ChallengesManager {
         int i = 0;
         for (String line : format) {
             finalMessage.append(line
-                    .replace("{0}", selectedChallenge.getMessage())
+                    .replace("{0}", selectedChallenge.message())
                     .replace("{1}", globalTop.toString()));
             if (i++ < format.size() - 1) finalMessage.append("§r \n");
         }
@@ -415,14 +424,14 @@ public class ChallengesManager {
 
 
     public void distributeTopRewards(Map<UUID, Integer> sorted) {
-        List<TopReward> rewards = Optional.ofNullable(selectedChallenge.getTopRewards()).orElse(Collections.emptyList());
+        List<TopReward> rewards = Optional.ofNullable(selectedChallenge.topRewards()).orElse(Collections.emptyList());
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
         boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
-        List<String> forAllCommands = Optional.ofNullable(selectedChallenge.getForAllCommands()).orElse(Collections.emptyList());
-        boolean giveToTop = selectedChallenge.isGiveForAllRewardToTop();
-        String forAllMsg = selectedChallenge.getForAllMessage();
+        List<String> forAllCommands = Optional.ofNullable(selectedChallenge.forAllCommands()).orElse(Collections.emptyList());
+        boolean giveToTop = selectedChallenge.giveForAllRewardToTop();
+        String forAllMsg = selectedChallenge.forAllMessage();
 
         int place = 0;
         for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
@@ -708,7 +717,7 @@ public class ChallengesManager {
                 this.startedTimestamp = System.currentTimeMillis();
 
                 TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(finalTimeout);
-                String message = finalChallenge.getMessage();
+                String message = finalChallenge.message();
 
                 sendTitleMessage(
                         config.getString("messages.title.start.title", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),

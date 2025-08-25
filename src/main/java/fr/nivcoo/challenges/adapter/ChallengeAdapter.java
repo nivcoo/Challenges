@@ -16,18 +16,18 @@ public class ChallengeAdapter implements RedisTypeAdapter<Challenge> {
     public JsonObject serialize(Challenge challenge) {
         JsonObject json = new JsonObject();
 
-        json.addProperty("type", challenge.getChallengeType().name());
-        json.addProperty("message", challenge.getMessage());
-        json.addProperty("countPreviousBlocks", challenge.isCountPreviousBlocks());
+        json.addProperty("type", challenge.challengeType().name());
+        json.addProperty("message", challenge.message());
+        json.addProperty("countPreviousBlocks", challenge.countPreviousBlocks());
 
         JsonArray reqs = new JsonArray();
-        for (String r : challenge.getRequirements()) {
+        for (String r : challenge.requirements()) {
             reqs.add(r);
         }
         json.add("requirements", reqs);
 
         JsonArray rewards = new JsonArray();
-        for (TopReward reward : challenge.getTopRewards()) {
+        for (TopReward reward : challenge.topRewards()) {
             JsonObject rewardJson = new JsonObject();
             rewardJson.addProperty("place", reward.place());
             rewardJson.addProperty("message", reward.message());
@@ -42,15 +42,15 @@ public class ChallengeAdapter implements RedisTypeAdapter<Challenge> {
         }
         json.add("topRewards", rewards);
 
-        json.addProperty("forAllMessage", challenge.getForAllMessage());
+        json.addProperty("forAllMessage", challenge.forAllMessage());
 
         JsonArray allCmds = new JsonArray();
-        for (String cmd : challenge.getForAllCommands()) {
+        for (String cmd : challenge.forAllCommands()) {
             allCmds.add(cmd);
         }
         json.add("forAllCommands", allCmds);
 
-        json.addProperty("giveForAllRewardToTop", challenge.isGiveForAllRewardToTop());
+        json.addProperty("giveForAllRewardToTop", challenge.giveForAllRewardToTop());
 
         return json;
     }

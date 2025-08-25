@@ -10,12 +10,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.metadata.MetadataValue;
-
-import java.util.List;
 
 public class BlockPlaceType extends ChallengeType implements Listener {
 
@@ -53,7 +49,7 @@ public class BlockPlaceType extends ChallengeType implements Listener {
 
     private boolean isConflictWithBreak() {
         Challenge c = getSelectedChallenge();
-        return c != null && c.getChallengeType() == Types.BLOCK_BREAK;
+        return c != null && c.challengeType() == Types.BLOCK_BREAK;
     }
 
 
