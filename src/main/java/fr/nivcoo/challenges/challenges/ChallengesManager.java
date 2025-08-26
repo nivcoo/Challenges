@@ -359,6 +359,16 @@ public class ChallengesManager {
         distributeTopRewards(sorted);
     }
 
+    private <T> List<T> topN(Collection<T> src, int n) {
+        if (n <= 0) return List.of();
+        List<T> list = new ArrayList<>(src);
+        return list.subList(0, Math.min(n, list.size()));
+    }
+
+    private int topLimit() {
+        return 10;
+    }
+
 
     public String buildTopMessage(Map<UUID, Integer> sorted) {
         List<TopReward> rewards = Optional.ofNullable(selectedChallenge.topRewards()).orElse(Collections.emptyList());
@@ -369,7 +379,8 @@ public class ChallengesManager {
         StringBuilder globalTop = new StringBuilder();
 
         int place = 0;
-        for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
+
+        for (Map.Entry<UUID, Integer> entry : topN(sorted.entrySet(), topLimit())) {
             place++;
             UUID uuid = entry.getKey();
             int score = entry.getValue();
