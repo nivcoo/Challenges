@@ -11,7 +11,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
@@ -98,9 +97,7 @@ public class ChallengesManager {
             return off;
         }
 
-        String fb = uuid.toString().substring(0, 8);
-        nameCache.put(uuid, fb);
-        return fb;
+        return uuid.toString().substring(0, 8);
     }
 
     public void preloadNamesFromDB() {
@@ -446,14 +443,13 @@ public class ChallengesManager {
         for (Map.Entry<UUID, Integer> entry : sorted.entrySet()) {
             place++;
             UUID uuid = entry.getKey();
-            OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
-            Player online = player.getPlayer();
+            Player online = Bukkit.getPlayer(uuid);
 
             boolean isTop = rewardMap.containsKey(place);
 
             if (!isTop || giveToTop) {
                 for (String cmd : forAllCommands) {
-                    sendConsoleCommand(cmd, player);
+                    sendConsoleCommand(cmd, uuid);
                 }
                 if (online != null) {
                     online.sendMessage(config.getString("messages.rewards.for_all", forAllMsg));
@@ -464,7 +460,7 @@ public class ChallengesManager {
 
             TopReward reward = rewardMap.get(place);
             for (String cmd : reward.commands()) {
-                sendConsoleCommand(cmd, player);
+                sendConsoleCommand(cmd, uuid);
             }
 
             if (online != null) {
@@ -480,13 +476,10 @@ public class ChallengesManager {
     }
 
 
-    public void sendConsoleCommand(String command, OfflinePlayer player) {
-        if (player == null) return;
-        UUID uuid = player.getUniqueId();
-        String name = (player.getName() != null && !player.getName().isEmpty())
-                ? player.getName()
-                : resolvePlayerName(uuid);
+    public void sendConsoleCommand(String command, UUID uuid) {
+        if (uuid == null) return;
 
+        String name = resolvePlayerName(uuid);
         if (name == null || name.isEmpty()) return;
 
         String cmd = command.replace("%player%", name);
@@ -542,7 +535,7 @@ public class ChallengesManager {
 
 
     public void setScoreToPlayer(Player p, int value) {
-        if (selectedChallenge == null) return;
+        if (!isChallengeStarted()) return;
 
         UUID uuid = p.getUniqueId();
         cacheName(uuid, p.getName());
