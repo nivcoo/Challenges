@@ -2,21 +2,28 @@ package fr.nivcoo.challenges.cache;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.actions.GlobalResetAction;
+import fr.nivcoo.challenges.actions.PlayerNameUpdateAction;
 import fr.nivcoo.challenges.utils.DatabaseChallenges;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class CacheManager {
 
+    private final Challenges challenges;
     private final DatabaseChallenges db;
     private LinkedHashMap<UUID, Integer> playersRankingCache;
+    private final Map<UUID, String> nameCache = new ConcurrentHashMap<>();
 
     public CacheManager() {
-        Challenges challenges = Challenges.get();
+        challenges = Challenges.get();
         this.db = challenges.getDatabaseChallenges();
         playersRankingCache = new LinkedHashMap<>();
         loadAllScores();
+        preloadNamesFromDB();
     }
 
     public void loadAllScores() {
@@ -43,6 +50,14 @@ public class CacheManager {
 
     public void resetAllData() {
         resetAllData(true);
+    }
+
+    public void preloadNamesFromDB() {
+        Map<UUID, String> all = Challenges.get().getDatabaseChallenges().getAllPlayerNames();
+        all.forEach((u, n) -> {
+            if (n != null && !n.isBlank()) nameCache.put(u, n);
+        });
+        Challenges.get().getLogger().info("[Challenges] Loaded " + nameCache.size() + " player names into cache.");
     }
 
     public void resetAllData(boolean propagate) {
@@ -85,5 +100,52 @@ public class CacheManager {
                         (e1, e2) -> e1,
                         LinkedHashMap::new
                 ));
+    }
+
+    public String resolvePlayerName(UUID uuid) {
+        String cached = nameCache.get(uuid);
+        if (cached != null) return cached;
+
+        String dbName = challenges.getDatabaseChallenges().getPlayerName(uuid);
+        if (dbName != null && !dbName.isBlank()) {
+            nameCache.put(uuid, dbName);
+            return dbName;
+        }
+
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null) {
+            String n = online.getName();
+            cacheName(uuid, n);
+            return n;
+        }
+
+        String off = Bukkit.getOfflinePlayer(uuid).getName();
+        if (off != null && !off.isBlank()) {
+            cacheName(uuid, off);
+            return off;
+        }
+
+        return uuid.toString();
+    }
+
+    public void cacheNameRemote(UUID uuid, String name) {
+        if (name == null || name.isBlank()) return;
+        String cached = nameCache.get(uuid);
+        if (name.equals(cached)) return;
+        nameCache.put(uuid, name);
+    }
+
+    public void cacheName(UUID uuid, String name) {
+        if (name == null || name.isBlank()) return;
+
+        String cached = nameCache.get(uuid);
+        if (name.equals(cached)) return;
+
+        nameCache.put(uuid, name);
+        Challenges.get().getDatabaseChallenges().savePlayerName(uuid, name);
+
+        if (Challenges.get().getRedisChannelRegistry() != null) {
+            Challenges.get().getRedisChannelRegistry().publish(new PlayerNameUpdateAction(uuid, name));
+        }
     }
 }

@@ -12,6 +12,6 @@ public record PlayerNameUpdateAction(UUID uuid, String name) implements RedisSer
     public void execute() {
         if (name == null || name.isBlank()) return;
         Challenges ch = Challenges.get();
-        ch.getChallengesManager().cacheNameRemote(uuid, name);
+        ch.getCacheManager().cacheNameRemote(uuid, name);
     }
 }

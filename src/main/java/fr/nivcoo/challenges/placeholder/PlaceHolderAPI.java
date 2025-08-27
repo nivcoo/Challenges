@@ -139,7 +139,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
         if (place < 1 || place > sorted.size())
             return config.getString("messages.global.none");
         UUID uuid = sorted.get(place - 1).getKey();
-        return challenges.getChallengesManager().resolvePlayerName(uuid);
+        return challenges.getCacheManager().resolvePlayerName(uuid);
     }
 
 
