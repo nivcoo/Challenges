@@ -36,7 +36,7 @@ public class CacheManager {
         return playersRankingCache.getOrDefault(uuid, 0);
     }
 
-    public void updateFromRedis(UUID uuid, int count) {
+    public void updateRankingFromRedis(UUID uuid, int count) {
         playersRankingCache.put(uuid, count);
         sortRanking();
     }

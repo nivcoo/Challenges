@@ -10,6 +10,6 @@ import java.util.UUID;
 public record RankingUpdateAction(UUID uuid, int count) implements RedisSerializable {
 
     public void execute() {
-        Challenges.get().getCacheManager().updateFromRedis(uuid, count);
+        Challenges.get().getCacheManager().updateRankingFromRedis(uuid, count);
     }
 }
