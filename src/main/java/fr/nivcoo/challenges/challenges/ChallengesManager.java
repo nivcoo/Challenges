@@ -97,7 +97,7 @@ public class ChallengesManager {
             return off;
         }
 
-        return uuid.toString().substring(0, 8);
+        return uuid.toString();
     }
 
     public void preloadNamesFromDB() {
