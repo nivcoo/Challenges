@@ -327,8 +327,11 @@ public class ChallengesManager {
         return list.subList(0, Math.min(n, list.size()));
     }
 
-    private int topLimit() {
-        return 10;
+    private int topDisplayLimit() {
+        if (selectedChallenge == null) return 0;
+        List<TopReward> r = Optional.ofNullable(selectedChallenge.topRewards())
+                .orElse(Collections.emptyList());
+        return r.isEmpty() ? 10 : r.size();
     }
 
 
@@ -342,7 +345,7 @@ public class ChallengesManager {
 
         int place = 0;
 
-        for (Map.Entry<UUID, Integer> entry : topN(sorted.entrySet(), topLimit())) {
+        for (Map.Entry<UUID, Integer> entry : topN(sorted.entrySet(), topDisplayLimit())) {
             place++;
             UUID uuid = entry.getKey();
             int score = entry.getValue();
