@@ -506,7 +506,6 @@ public class ChallengesManager {
         if (!isChallengeStarted()) return;
 
         UUID uuid = p.getUniqueId();
-        challenges.getCacheManager().cacheName(uuid, p.getName());
 
         int newScore = playersProgress.getOrDefault(uuid, 0) + value;
         playersProgress.put(uuid, newScore);

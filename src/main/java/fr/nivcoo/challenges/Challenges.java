@@ -104,7 +104,6 @@ public class Challenges extends JavaPlugin {
             redisChannelRegistry.register(ChallengeScoreAction.class);
             redisChannelRegistry.register(ChallengeStopAction.class);
             redisChannelRegistry.register(ChallengeEndAction.class);
-            redisChannelRegistry.register(PlayerNameUpdateAction.class);
 
             RedisAdapterRegistry.register(TopReward.class, new TopRewardAdapter());
             RedisAdapterRegistry.register(Challenge.class, new ChallengeAdapter());

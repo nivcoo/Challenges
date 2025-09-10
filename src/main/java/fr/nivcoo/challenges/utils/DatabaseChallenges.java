@@ -26,11 +26,6 @@ public class DatabaseChallenges {
                 new ColumnDefinition("uuid", "TEXT", "PRIMARY KEY"),
                 new ColumnDefinition("score", "INTEGER", "DEFAULT 0")
         ));
-        db.createTable("challenge_players", List.of(
-                new ColumnDefinition("player_uuid", "TEXT"),
-                new ColumnDefinition("player_name", "TEXT"),
-                new TableConstraintDefinition("PRIMARY KEY (player_uuid)")
-        ));
 
     }
 
