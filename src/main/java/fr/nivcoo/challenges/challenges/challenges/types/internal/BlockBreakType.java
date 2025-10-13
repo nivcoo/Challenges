@@ -25,9 +25,12 @@ public class BlockBreakType extends ChallengeType implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockBreakEvent(BlockBreakEvent e) {
         if (shouldIgnore() && !isConflictWithPlace()) return;
+        Block b = e.getBlock();
+        if (b.hasMetadata("blockbreakevent-ignore"))
+            return;
 
         Player p = e.getPlayer();
-        Block b = e.getBlock();
+
         Material type = b.getType();
         byte data = b.getData();
         Location loc = b.getLocation();

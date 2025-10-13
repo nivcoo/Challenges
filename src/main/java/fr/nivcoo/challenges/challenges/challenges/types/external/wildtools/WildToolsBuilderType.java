@@ -21,7 +21,7 @@ public class WildToolsBuilderType extends ChallengeType implements Listener {
 
     @SuppressWarnings("deprecation")
     @EventHandler
-    public void onBlockBreakEvent(BuilderWandUseEvent e) {
+    public void onBuilderWandUseEvent(BuilderWandUseEvent e) {
         List<Location> locs = e.getBlocks();
         for (Location loc : locs)
             loc.getBlock().setMetadata(blacklistMeta, new FixedMetadataValue(challenges, true));
