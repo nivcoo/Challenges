@@ -1,10 +1,10 @@
 package fr.nivcoo.challenges.cache;
 
 import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.actions.GlobalResetAction;
-import fr.nivcoo.challenges.utils.DatabaseChallenges;
-import fr.nivcoo.edenplayers.EdenPlayers;
+import fr.nivcoo.challenges.messaging.action.GlobalResetAction;
+import fr.nivcoo.challenges.storage.Database;
 import fr.nivcoo.edenplayers.api.AEdenPlayers;
+import fr.nivcoo.edenplayers.api.EdenPlayersAPI;
 import fr.nivcoo.edenplayers.api.model.PlayerProfile;
 
 import java.util.*;
@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 public class CacheManager {
 
-    private final DatabaseChallenges db;
+    private final Database db;
     private LinkedHashMap<UUID, Integer> playersRankingCache;
 
     public CacheManager() {
@@ -39,7 +39,7 @@ public class CacheManager {
         return playersRankingCache.getOrDefault(uuid, 0);
     }
 
-    public void updateRankingFromRedis(UUID uuid, int count) {
+    public void updateRankingFromBus(UUID uuid, int count) {
         playersRankingCache.put(uuid, count);
         sortRanking();
     }
@@ -52,9 +52,7 @@ public class CacheManager {
     public void resetAllData(boolean propagate) {
         performReset();
 
-        if (propagate && Challenges.get().getRedisChannelRegistry() != null) {
-            Challenges.get().getRedisChannelRegistry().publish(new GlobalResetAction());
-        }
+        if (propagate) Challenges.get().getBus().publish(new GlobalResetAction());
 
         Challenges.get().getLogger().info("[Challenges] Réinitialisation " + (propagate ? "globale" : "locale") + " effectuée.");
     }
@@ -92,9 +90,9 @@ public class CacheManager {
     }
 
     public String resolvePlayerName(UUID uuid) {
-        AEdenPlayers api = EdenPlayers.get();
+        AEdenPlayers api = EdenPlayersAPI.get();
         if (api != null) {
-            Optional<PlayerProfile> optProfile = api.getProfileCached(uuid);
+            Optional<PlayerProfile> optProfile = api.players().profile(uuid);
             if (optProfile.isPresent()) {
                 String name = optProfile.get().getUsername();
                 if (name != null && !name.isBlank()) {

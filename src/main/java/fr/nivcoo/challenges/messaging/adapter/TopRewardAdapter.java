@@ -1,14 +1,14 @@
-package fr.nivcoo.challenges.adapter;
+package fr.nivcoo.challenges.messaging.adapter;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import fr.nivcoo.challenges.challenges.TopReward;
-import fr.nivcoo.utilsz.redis.RedisTypeAdapter;
+import fr.nivcoo.utilsz.core.messaging.BusTypeAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class TopRewardAdapter implements RedisTypeAdapter<TopReward> {
+public class TopRewardAdapter implements BusTypeAdapter<TopReward> {
 
     @Override
     public JsonObject serialize(TopReward reward) {

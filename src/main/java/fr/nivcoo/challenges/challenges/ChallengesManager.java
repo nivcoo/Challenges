@@ -1,12 +1,15 @@
 package fr.nivcoo.challenges.challenges;
 
 import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.actions.*;
 import fr.nivcoo.challenges.challenges.challenges.Types;
-import fr.nivcoo.challenges.challenges.challenges.types.external.wildtools.WildToolsBuilderType;
 import fr.nivcoo.challenges.challenges.challenges.types.internal.*;
+import fr.nivcoo.challenges.config.MainConfig;
+import fr.nivcoo.challenges.messaging.action.ChallengeEndAction;
+import fr.nivcoo.challenges.messaging.action.ChallengeScoreAction;
+import fr.nivcoo.challenges.messaging.action.ChallengeStartAction;
+import fr.nivcoo.challenges.messaging.action.ChallengeStopAction;
 import fr.nivcoo.challenges.utils.time.TimePair;
-import fr.nivcoo.utilsz.config.Config;
+import fr.nivcoo.utilsz.core.config.ConfigManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
@@ -21,9 +24,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class ChallengesManager {
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private Challenges challenges;
-    private Config config;
+    private MainConfig config;
     private boolean challengeStarted;
     private Thread challengeThread;
     private Thread challengeIntervalThread;
@@ -49,11 +53,11 @@ public class ChallengesManager {
 
     public void init() {
         challenges = Challenges.get();
-        config = challenges.getConfiguration();
-        interval = config.getInt("interval");
-        timeout = config.getInt("timeout");
-        countdownNumber = config.getInt("countdown_number");
-        playerNeeded = config.getInt("players_needed");
+        config = challenges.cfg();
+        interval = config.interval;
+        timeout = config.timeout;
+        countdownNumber = config.countdownNumber;
+        playerNeeded = config.playersNeeded;
         registerEvents();
         registerChallenges();
         playersProgress = new LinkedHashMap<>();
@@ -69,18 +73,13 @@ public class ChallengesManager {
         registerEvent(new FishingType());
         registerEvent(new EnchantAllType());
         registerEvent(new ConsumeType());
-        registerEvent(new WildToolsBuilderType());
     }
 
 
-    private Sound safeSound(String path) {
-        String s = config.getString(path);
-        if (s == null) return null;
-        try {
-            return Sound.valueOf(s);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+    private Sound sound(String name) {
+        if ("add".equals(name)) return config.sound.add;
+        if ("remove".equals(name)) return config.sound.remove;
+        return config.sound.messages;
     }
 
 
@@ -91,35 +90,29 @@ public class ChallengesManager {
     public void registerChallenges() {
         challengesList = new ArrayList<>();
 
-        List<String> keys = config.getKeys("challenges");
-        if (keys.isEmpty()) {
+        if (config.challenges.isEmpty()) {
             challenges.getLogger().info("No challenges found in the configuration file.");
             return;
         }
 
         List<TopReward> globalTopRewards = new ArrayList<>();
-        List<String> topKeys = config.getKeys("rewards.top");
 
-        for (String placeKey : topKeys) {
-            int place = Integer.parseInt(placeKey);
-            String rewardMsg = config.getString("rewards.top." + placeKey + ".message");
-            List<String> rewardCmds = config.getStringList("rewards.top." + placeKey + ".commands");
-            globalTopRewards.add(new TopReward(place, rewardMsg, rewardCmds));
+        for (Map.Entry<String, MainConfig.RewardGroup> entry : config.rewards.top.entrySet()) {
+            int place = Integer.parseInt(entry.getKey());
+            MainConfig.RewardGroup reward = entry.getValue();
+            globalTopRewards.add(new TopReward(place, legacy(reward.message), reward.commands));
         }
 
-        for (String key : keys) {
-            String challengePath = "challenges." + key;
-            String challengeType = config.getString(challengePath + ".challenge");
-            Types type = Types.valueOf(challengeType.toUpperCase());
-            List<String> requirements = config.getStringList(challengePath + ".requirements");
-            String message = config.getString(challengePath + ".message");
-            boolean countPreviousBlocks = config.getBoolean(challengePath + ".count_previous_blocks");
+        for (MainConfig.ChallengeEntry entry : config.challenges.values()) {
+            Types type = entry.challenge;
+            List<String> requirements = entry.requirements;
+            String message = legacy(entry.message);
 
-            String forAllMessage = config.getString("rewards.for_all.message");
-            List<String> forAllCommands = config.getStringList("rewards.for_all.commands");
-            boolean giveToTop = config.getBoolean("rewards.give_for_all_reward_to_top");
+            String forAllMessage = legacy(config.rewards.forAll.message);
+            List<String> forAllCommands = config.rewards.forAll.commands;
+            boolean giveToTop = config.rewards.giveForAllRewardToTop;
 
-            Challenge challenge = new Challenge(type, requirements, message, countPreviousBlocks, globalTopRewards,
+            Challenge challenge = new Challenge(type, requirements, message, entry.countPreviousBlocks, globalTopRewards,
                     forAllMessage, forAllCommands, giveToTop);
 
             challengesList.add(challenge);
@@ -131,8 +124,8 @@ public class ChallengesManager {
         stopChallengeTasks();
         if (interval <= 0)
             return;
-        List<Integer> whitelistedHours = config.getIntegerList("whitelisted_hours");
-        int countdownNumber = config.getInt("countdown_number");
+        List<Integer> whitelistedHours = config.whitelistedHours;
+        int countdownNumber = config.countdownNumber;
         challengeIntervalThread = new Thread(() -> {
             while (!Thread.interrupted()) {
                 try {
@@ -175,11 +168,9 @@ public class ChallengesManager {
                 now
         );
 
-        if (Challenges.get().getRedisChannelRegistry() != null) {
-            Challenges.get().getRedisChannelRegistry().publish(action);
-        }
+        Challenges.get().getBus().publish(action);
 
-        startCountdownFromRedis(c, timeout, countdown, now, true);
+        startCountdownFromBus(c, timeout, countdown, now, true);
     }
 
 
@@ -201,7 +192,7 @@ public class ChallengesManager {
     }
 
     public void startActionBarInterval() {
-        List<String> blacklistedWorld = config.getStringList("blacklisted_world");
+        List<String> blacklistedWorld = config.blacklistedWorld;
         actionBarIntervalThread = new Thread(() -> {
             while (!Thread.interrupted()) {
                 try {
@@ -230,8 +221,8 @@ public class ChallengesManager {
     }
 
     public void sendTitleMessage(String title, String subtitle, int time, int fadeInTick, int fadeOutTick) {
-        Component titleComponent = LegacyComponentSerializer.legacySection().deserialize(title);
-        Component subtitleComponent = LegacyComponentSerializer.legacySection().deserialize(subtitle);
+        Component titleComponent = LEGACY.deserialize(title);
+        Component subtitleComponent = LEGACY.deserialize(subtitle);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.showTitle(net.kyori.adventure.title.Title.title(
@@ -256,14 +247,13 @@ public class ChallengesManager {
             finishChallenge();
             return;
         }
-        String runningPath = "messages.action_bar.running.";
-        String message = config.getString(runningPath + "message", selectedChallenge.message(),
-                String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type);
+        String message = format(config.messages.actionBar.running.message,
+                selectedChallenge.message(), String.valueOf(getScoreOfPlayer(p.getUniqueId())), String.valueOf(number), type, "{4}");
         int place = getPlaceOfPlayer(p);
         if (place == 0)
             message = message.replace("{4} ", "");
         else {
-            message = message.replace("{4}", config.getString(runningPath + "place", String.valueOf(place)));
+            message = message.replace("{4}", format(config.messages.actionBar.running.place, String.valueOf(place)));
         }
         sendActionBarMessage(p, message);
     }
@@ -273,14 +263,14 @@ public class ChallengesManager {
             return null;
         Date date = new Date();
         long now = date.getTime();
-        int timeout = config.getInt("timeout");
+        int timeout = config.timeout;
         long s = (timeout) - ((now - startedTimestamp) / 1000);
 
         return challenges.getTimeUtil().getTimeAndTypeBySecond(s);
     }
 
     public void sendActionBarMessage(Player p, String message) {
-        Component component = LegacyComponentSerializer.legacySection().deserialize(message);
+        Component component = LEGACY.deserialize(message);
         p.sendActionBar(component);
     }
 
@@ -294,7 +284,7 @@ public class ChallengesManager {
 
         Map<UUID, Integer> sorted = getSortPlayersProgress();
         if (sorted.isEmpty()) {
-            sendGlobalMessage(config.getString("messages.chat.no_player"));
+            sendGlobalMessage(legacy(config.messages.chat.noPlayer));
             return;
         }
 
@@ -340,7 +330,6 @@ public class ChallengesManager {
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
-        String templatePath = "messages.chat.top.template_points.";
         StringBuilder globalTop = new StringBuilder();
 
         int place = 0;
@@ -350,7 +339,7 @@ public class ChallengesManager {
             UUID uuid = entry.getKey();
             int score = entry.getValue();
 
-            String baseMessage = config.getString("messages.chat.top.template",
+            String baseMessage = format(config.messages.chat.top.template,
                     String.valueOf(place),
                     challenges.getCacheManager().resolvePlayerName(uuid),
                     String.valueOf(score));
@@ -360,22 +349,21 @@ public class ChallengesManager {
             if (reward != null) {
                 baseMessage = baseMessage.replace("{4}", reward.message());
 
-                boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+                boolean addAllTop = config.rewards.addAllTopIntoDb;
                 int addNumber = addAllTop ? rewards.size() - place + 1 : (place == 1 ? 1 : 0);
 
                 if (addNumber > 0) {
                     String label = (addNumber > 1)
-                            ? config.getString(templatePath + "points")
-                            : config.getString(templatePath + "point");
-                    String pointText = config.getString(templatePath + "display",
-                            String.valueOf(addNumber), label);
+                            ? config.messages.chat.top.templatePoints.points
+                            : config.messages.chat.top.templatePoints.point;
+                    String pointText = format(config.messages.chat.top.templatePoints.display, String.valueOf(addNumber), label);
                     baseMessage = baseMessage.replace("{3}", pointText);
                 } else {
-                    baseMessage = baseMessage.replace("{3}", config.getString(templatePath + "default", ""));
+                    baseMessage = baseMessage.replace("{3}", legacy(config.messages.chat.top.templatePoints.defaultValue));
                 }
 
             } else {
-                baseMessage = baseMessage.replace("{3}", config.getString(templatePath + "default", ""));
+                baseMessage = baseMessage.replace("{3}", legacy(config.messages.chat.top.templatePoints.defaultValue));
                 baseMessage = baseMessage.replace("{4}", "");
             }
 
@@ -384,12 +372,10 @@ public class ChallengesManager {
         }
 
         StringBuilder finalMessage = new StringBuilder();
-        List<String> format = config.getStringList("messages.chat.top.message");
+        List<Component> format = config.messages.chat.top.message;
         int i = 0;
-        for (String line : format) {
-            finalMessage.append(line
-                    .replace("{0}", selectedChallenge.message())
-                    .replace("{1}", globalTop.toString()));
+        for (Component line : format) {
+            finalMessage.append(format(line, selectedChallenge.message(), globalTop.toString()));
             if (i++ < format.size() - 1) finalMessage.append("§r \n");
         }
 
@@ -402,7 +388,7 @@ public class ChallengesManager {
         Map<Integer, TopReward> rewardMap = rewards.stream()
                 .collect(Collectors.toMap(TopReward::place, r -> r));
 
-        boolean addAllTop = config.getBoolean("rewards.add_all_top_into_db");
+        boolean addAllTop = config.rewards.addAllTopIntoDb;
         List<String> forAllCommands = Optional.ofNullable(selectedChallenge.forAllCommands()).orElse(Collections.emptyList());
         boolean giveToTop = selectedChallenge.giveForAllRewardToTop();
         String forAllMsg = selectedChallenge.forAllMessage();
@@ -420,7 +406,7 @@ public class ChallengesManager {
                     sendConsoleCommand(cmd, uuid);
                 }
                 if (online != null) {
-                    online.sendMessage(config.getString("messages.rewards.for_all", forAllMsg));
+                    online.sendMessage(ConfigManager.fmt(config.messages.rewards.forAll, Map.of("0", forAllMsg)));
                 }
             }
 
@@ -432,8 +418,8 @@ public class ChallengesManager {
             }
 
             if (online != null) {
-                online.sendMessage(config.getString("messages.rewards.top",
-                        String.valueOf(place), reward.message()));
+                online.sendMessage(ConfigManager.fmt(config.messages.rewards.top,
+                        Map.of("0", String.valueOf(place), "1", reward.message())));
             }
 
             if (addAllTop || place == 1) {
@@ -479,7 +465,7 @@ public class ChallengesManager {
 
         setScoreToPlayer(p, number);
 
-        Sound sound = safeSound("sound.add");
+        Sound sound = sound("add");
         if (sound != null) {
             p.playSound(p.getLocation(), sound, 0.4f, 1.7f);
         }
@@ -497,7 +483,7 @@ public class ChallengesManager {
 
     public void removeScoreToPlayer(Player p, int number) {
         setScoreToPlayer(p, -number);
-        Sound sound = safeSound("sound.remove");
+        Sound sound = sound("remove");
         if (sound != null) p.playSound(p.getLocation(), sound, .4f, 1.7f);
     }
 
@@ -510,9 +496,7 @@ public class ChallengesManager {
         int newScore = playersProgress.getOrDefault(uuid, 0) + value;
         playersProgress.put(uuid, newScore);
 
-        if (Challenges.get().getRedisChannelRegistry() != null) {
-            Challenges.get().getRedisChannelRegistry().publish(new ChallengeScoreAction(uuid, newScore));
-        }
+        Challenges.get().getBus().publish(new ChallengeScoreAction(uuid, newScore));
 
         sendActionBarMessage(p);
     }
@@ -524,7 +508,7 @@ public class ChallengesManager {
 
     public void sendGlobalMessage(String message) {
         if (selectedChallenge == null) return;
-        Sound sound = safeSound("sound.messages");
+        Sound sound = sound("messages");
         for (Player p : Bukkit.getServer().getOnlinePlayers()) {
             p.sendMessage(message);
             if (sound != null) p.playSound(p.getLocation(), sound, .4f, 1.7f);
@@ -576,9 +560,7 @@ public class ChallengesManager {
 
     public void disablePlugin() {
         if (isChallengeStarted() && isChallengeOrigin) {
-            if (Challenges.get().getRedisChannelRegistry() != null) {
-                Challenges.get().getRedisChannelRegistry().publish(new ChallengeEndAction());
-            }
+            Challenges.get().getBus().publish(new ChallengeEndAction());
         }
 
         finishChallenge();
@@ -612,7 +594,7 @@ public class ChallengesManager {
 
     public String getPlayerNameProgressByPlace(int place) {
         Entry<UUID, Integer> playerProgress = getPlayerProgressByPlace(place);
-        if (playerProgress == null) return config.getString("messages.global.none");
+        if (playerProgress == null) return legacy(config.messages.global.none);
         return challenges.getCacheManager().resolvePlayerName(playerProgress.getKey());
     }
 
@@ -641,7 +623,7 @@ public class ChallengesManager {
         init();
     }
 
-    public void startCountdownFromRedis(Challenge challenge, int timeout, int countdown, long timestamp, boolean isOrigin) {
+    public void startCountdownFromBus(Challenge challenge, int timeout, int countdown, long timestamp, boolean isOrigin) {
         stopCurrentChallenge();
 
         this.isChallengeOrigin = isOrigin;
@@ -666,11 +648,11 @@ public class ChallengesManager {
                 for (int i = finalRemainingCountdown; i > 0; i--) {
                     TimePair<Long, String> getTimePair = challenges.getTimeUtil().getTimeAndTypeBySecond(i);
                     sendTitleMessage(
-                            config.getString("messages.title.countdown.title", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()),
-                            config.getString("messages.title.countdown.subtitle", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()),
+                            format(config.messages.title.countdown.title, String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()),
+                            format(config.messages.title.countdown.subtitle, String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()),
                             2, 0, 0
                     );
-                    sendActionBarMessage(config.getString("messages.action_bar.countdown", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()));
+                    sendActionBarMessage(format(config.messages.actionBar.countdown, String.valueOf(getTimePair.getFirst()), getTimePair.getSecond()));
                     Thread.sleep(1000);
                 }
 
@@ -681,14 +663,14 @@ public class ChallengesManager {
                 String message = finalChallenge.message();
 
                 sendTitleMessage(
-                        config.getString("messages.title.start.title", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),
-                        config.getString("messages.title.start.subtitle", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),
-                        config.getInt("messages.title.start.stay"),
-                        config.getInt("messages.title.start.fadeInTick"),
-                        config.getInt("messages.title.start.fadeOutTick")
+                        format(config.messages.title.start.title, String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),
+                        format(config.messages.title.start.subtitle, String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message),
+                        config.messages.title.start.stay,
+                        config.messages.title.start.fadeInTick,
+                        config.messages.title.start.fadeOutTick
                 );
 
-                sendGlobalMessage(config.getString("messages.chat.start_message", String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message));
+                sendGlobalMessage(format(config.messages.chat.startMessage, String.valueOf(getTimePair.getFirst()), getTimePair.getSecond(), message));
                 startActionBarInterval();
                 startFinishTimer("Challenges Sync Start Thread", finalTimeout);
 
@@ -707,18 +689,25 @@ public class ChallengesManager {
     }
 
     public void stopChallengeGlobally() {
-        if (Challenges.get().getRedisChannelRegistry() != null) {
-            Challenges.get().getRedisChannelRegistry().publish(new ChallengeStopAction());
-        }
+        Challenges.get().getBus().publish(new ChallengeStopAction());
         stopCurrentChallenge();
     }
 
     public void endChallengeGlobally() {
-        if (Challenges.get().getRedisChannelRegistry() != null) {
-            Challenges.get().getRedisChannelRegistry().publish(new ChallengeEndAction());
-        }
+        Challenges.get().getBus().publish(new ChallengeEndAction());
         finishChallenge();
     }
 
+    private String format(Component template, String... args) {
+        Map<String, Object> vars = new HashMap<>();
+        for (int i = 0; i < args.length; i++) {
+            vars.put(String.valueOf(i), args[i]);
+        }
+        return legacy(ConfigManager.fmt(template, vars));
+    }
+
+    private String legacy(Component component) {
+        return LEGACY.serialize(component == null ? Component.empty() : component);
+    }
 
 }

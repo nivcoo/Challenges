@@ -3,9 +3,12 @@ package fr.nivcoo.challenges.placeholder;
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.Challenge;
 import fr.nivcoo.challenges.challenges.TopReward;
+import fr.nivcoo.challenges.config.MainConfig;
 import fr.nivcoo.challenges.utils.time.TimePair;
-import fr.nivcoo.utilsz.config.Config;
+import fr.nivcoo.utilsz.core.config.ConfigManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -15,9 +18,10 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 public class PlaceHolderAPI extends PlaceholderExpansion {
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private final Challenges challenges = Challenges.get();
-    private final Config config = challenges.getConfiguration();
+    private final MainConfig config = challenges.cfg();
 
     @Override
     public @NotNull String getIdentifier() {
@@ -48,35 +52,34 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
             case "is_started" -> String.valueOf(challenges.getChallengesManager().isChallengeStarted());
             case "current_challenge_message" -> {
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
-                yield challenge != null ? challenge.message() : config.getString("messages.global.none");
+                yield challenge != null ? challenge.message() : legacy(config.messages.global.none);
             }
             case "current_challenge_score" -> p != null
                     ? String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()))
                     : "0";
             case "current_challenge_place" -> {
-                if (p == null) yield config.getString("messages.placeholders.current_challenge_place.none");
+                if (p == null) yield legacy(config.messages.placeholders.currentChallengePlace.none);
                 int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
                 yield place == 0
-                        ? config.getString("messages.placeholders.current_challenge_place.none")
+                        ? legacy(config.messages.placeholders.currentChallengePlace.none)
                         : String.valueOf(place);
             }
             case "current_challenge_countdown" -> {
                 TimePair<Long, String> countdown = challenges.getChallengesManager().getCountdown();
-                String path = "messages.placeholders.current_challenge_countdown.";
                 yield countdown == null
-                        ? config.getString(path + "stop")
-                        : config.getString(path + "started",
+                        ? legacy(config.messages.placeholders.currentChallengeCountdown.stop)
+                        : format(config.messages.placeholders.currentChallengeCountdown.started,
                         String.valueOf(countdown.getFirst()), countdown.getSecond());
             }
 
             case "current_challenge_reward" -> {
-                if (p == null) yield config.getString("messages.global.none");
+                if (p == null) yield legacy(config.messages.global.none);
 
                 int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
-                if (place == 0) yield config.getString("messages.global.none");
+                if (place == 0) yield legacy(config.messages.global.none);
 
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
-                if (challenge == null) yield config.getString("messages.global.none");
+                if (challenge == null) yield legacy(config.messages.global.none);
 
                 yield getRewardMessageForPlace(challenge, place);
             }
@@ -85,7 +88,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
                 yield challenge != null && challenge.forAllMessage() != null && !challenge.forAllMessage().isBlank()
                         ? challenge.forAllMessage()
-                        : config.getString("messages.global.none");
+                        : legacy(config.messages.global.none);
             }
 
             default -> {
@@ -93,7 +96,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                     int place = parsePlace(identifier, "current_challenge_reward_");
                     Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
                     if (challenge == null || place <= 0)
-                        yield config.getString("messages.global.none");
+                        yield legacy(config.messages.global.none);
                     yield getRewardMessageForPlace(challenge, place);
                 }
 
@@ -137,7 +140,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     private String getGlobalTopName(int place) {
         List<Entry<UUID, Integer>> sorted = sortGlobalTop();
         if (place < 1 || place > sorted.size())
-            return config.getString("messages.global.none");
+            return legacy(config.messages.global.none);
         UUID uuid = sorted.get(place - 1).getKey();
         return challenges.getCacheManager().resolvePlayerName(uuid);
     }
@@ -161,7 +164,19 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 .filter(r -> r.place() == place)
                 .map(TopReward::message)
                 .findFirst()
-                .orElse(config.getString("messages.global.none"));
+                .orElse(legacy(config.messages.global.none));
+    }
+
+    private String format(Component template, String... args) {
+        Map<String, Object> vars = new HashMap<>();
+        for (int i = 0; i < args.length; i++) {
+            vars.put(String.valueOf(i), args[i]);
+        }
+        return legacy(ConfigManager.fmt(template, vars));
+    }
+
+    private String legacy(Component component) {
+        return LEGACY.serialize(component == null ? Component.empty() : component);
     }
 
 }
