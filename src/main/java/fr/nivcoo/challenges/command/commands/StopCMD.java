@@ -19,8 +19,9 @@ public class StopCMD implements BukkitCommand {
     @Override
     public void execute(CommandSender sender, String label, String[] args) {
         Challenges plugin = Challenges.get();
-        plugin.getChallengesManager().stopChallengeGlobally();
-        sender.sendMessage(plugin.cfg().messages.commands.successStop);
+        if (plugin.getChallengesManager().stopChallengeGlobally()) {
+            sender.sendMessage(plugin.cfg().messages.commands.successStop);
+        }
     }
 
     @Override public List<String> tabComplete(CommandSender sender, String label, String[] args) { return List.of(); }

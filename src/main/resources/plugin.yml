@@ -3,7 +3,8 @@ version: 1.0.1
 author: nivcoo
 main: fr.nivcoo.challenges.Challenges
 api-version: 1.13
-softdepend: [ PlaceholderAPI, WildTools, WildStacker ]
+depend: [ EdenPlayers ]
+softdepend: [ PlaceholderAPI, EdenQuests ]
 commands:
   clgs:
     description: Challenges Command

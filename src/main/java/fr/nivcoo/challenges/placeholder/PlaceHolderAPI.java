@@ -2,6 +2,7 @@ package fr.nivcoo.challenges.placeholder;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.challenges.Challenge;
+import fr.nivcoo.challenges.challenges.ChallengeAmount;
 import fr.nivcoo.challenges.challenges.TopReward;
 import fr.nivcoo.challenges.config.MainConfig;
 import fr.nivcoo.challenges.utils.time.TimePair;
@@ -21,7 +22,6 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private final Challenges challenges = Challenges.get();
-    private final MainConfig config = challenges.cfg();
 
     @Override
     public @NotNull String getIdentifier() {
@@ -45,6 +45,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 
     @Override
     public String onRequest(OfflinePlayer player, String identifier) {
+        MainConfig config = challenges.cfg();
         Player p = player.getPlayer();
 
         return switch (identifier) {
@@ -55,7 +56,8 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 yield challenge != null ? challenge.message() : legacy(config.messages.global.none);
             }
             case "current_challenge_score" -> p != null
-                    ? String.valueOf(challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()))
+                    ? ChallengeAmount.canonical(
+                    challenges.getChallengesManager().getScoreOfPlayer(p.getUniqueId()))
                     : "0";
             case "current_challenge_place" -> {
                 if (p == null) yield legacy(config.messages.placeholders.currentChallengePlace.none);
@@ -140,7 +142,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     private String getGlobalTopName(int place) {
         List<Entry<UUID, Integer>> sorted = sortGlobalTop();
         if (place < 1 || place > sorted.size())
-            return legacy(config.messages.global.none);
+            return legacy(challenges.cfg().messages.global.none);
         UUID uuid = sorted.get(place - 1).getKey();
         return challenges.getCacheManager().resolvePlayerName(uuid);
     }
@@ -155,7 +157,8 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
 
     private List<Entry<UUID, Integer>> sortGlobalTop() {
         return challenges.getCacheManager().getSortedScores().entrySet().stream()
-                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed())
+                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed()
+                        .thenComparing(entry -> entry.getKey().toString()))
                 .collect(Collectors.toList());
     }
 
@@ -164,7 +167,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 .filter(r -> r.place() == place)
                 .map(TopReward::message)
                 .findFirst()
-                .orElse(legacy(config.messages.global.none));
+                .orElse(legacy(challenges.cfg().messages.global.none));
     }
 
     private String format(Component template, String... args) {

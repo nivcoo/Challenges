@@ -2,7 +2,7 @@ package fr.nivcoo.challenges.hook.core;
 
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.config.MainConfig;
-import fr.nivcoo.challenges.service.integration.EntityStackService;
+import fr.nivcoo.challenges.service.tracking.ChallengeTrackingService;
 import fr.nivcoo.utilsz.platform.bukkit.hook.BukkitHookContext;
 
 public final class HookContext extends BukkitHookContext {
@@ -22,7 +22,7 @@ public final class HookContext extends BukkitHookContext {
         return plugin.cfg();
     }
 
-    public EntityStackService entityStacks() {
-        return plugin.entityStacks();
+    public void bindTrackingService(ChallengeTrackingService service) {
+        plugin.bindTrackingService(service);
     }
 }

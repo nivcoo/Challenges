@@ -1,12 +1,13 @@
 package fr.nivcoo.challenges.cache;
 
 import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.messaging.action.GlobalResetAction;
-import fr.nivcoo.challenges.storage.Database;
 import fr.nivcoo.edenplayers.api.AEdenPlayers;
+import fr.nivcoo.challenges.storage.Database;
 import fr.nivcoo.edenplayers.api.EdenPlayersAPI;
 import fr.nivcoo.edenplayers.api.model.PlayerProfile;
+import org.bukkit.Bukkit;
 
+import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -15,59 +16,36 @@ public class CacheManager {
     private final Database db;
     private LinkedHashMap<UUID, Integer> playersRankingCache;
 
-    public CacheManager() {
+    public CacheManager() throws SQLException {
         Challenges challenges = Challenges.get();
         this.db = challenges.getDatabaseChallenges();
         playersRankingCache = new LinkedHashMap<>();
         loadAllScores();
     }
 
-    public void loadAllScores() {
-        Map<UUID, Integer> loaded = db.getAllPlayersScore();
+    private void loadAllScores() throws SQLException {
+        Map<UUID, Integer> loaded = db.getAllPlayersScoreStrict();
         playersRankingCache.clear();
         playersRankingCache.putAll(sortByValueDescending(loaded));
-    }
-
-    public void updatePlayerScore(UUID uuid, int addNumber) {
-        int newCount = getPlayerScore(uuid) + addNumber;
-        db.updatePlayerScore(uuid, newCount);
-        playersRankingCache.put(uuid, newCount);
-        sortRanking();
     }
 
     public int getPlayerScore(UUID uuid) {
         return playersRankingCache.getOrDefault(uuid, 0);
     }
 
-    public void updateRankingFromBus(UUID uuid, int count) {
-        playersRankingCache.put(uuid, count);
+    public void applyRankingUpdates(Map<UUID, Integer> scores) {
+        if (scores == null || scores.isEmpty()) return;
+        playersRankingCache.putAll(scores);
         sortRanking();
     }
 
-    public void resetAllData() {
-        resetAllData(true);
-    }
-
-
-    public void resetAllData(boolean propagate) {
-        performReset();
-
-        if (propagate) Challenges.get().getBus().publish(new GlobalResetAction());
-
-        Challenges.get().getLogger().info("[Challenges] Réinitialisation " + (propagate ? "globale" : "locale") + " effectuée.");
-    }
-
-    private void performReset() {
-        Challenges plugin = Challenges.get();
-
-        if (plugin.getChallengesManager() != null) {
-            plugin.getChallengesManager().stopCurrentChallenge();
-        }
-
-        db.clearDB();
+    public void clearRanking() {
         playersRankingCache.clear();
+    }
 
-        plugin.reload();
+    public void replaceRanking(Map<UUID, Integer> scores) {
+        playersRankingCache.clear();
+        playersRankingCache.putAll(sortByValueDescending(scores));
     }
 
     public Map<UUID, Integer> getSortedScores() {
@@ -80,7 +58,8 @@ public class CacheManager {
 
     private LinkedHashMap<UUID, Integer> sortByValueDescending(Map<UUID, Integer> input) {
         return input.entrySet().stream()
-                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed())
+                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed()
+                        .thenComparing(entry -> entry.getKey().toString()))
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,
@@ -90,17 +69,34 @@ public class CacheManager {
     }
 
     public String resolvePlayerName(UUID uuid) {
-        AEdenPlayers api = EdenPlayersAPI.get();
-        if (api != null) {
-            Optional<PlayerProfile> optProfile = api.players().profile(uuid);
-            if (optProfile.isPresent()) {
-                String name = optProfile.get().getUsername();
-                if (name != null && !name.isBlank()) {
-                    return name;
+        Optional<String> authoritative = resolveRewardPlayerName(uuid);
+        if (authoritative.isPresent()) return authoritative.get();
+
+        String bukkitName = Bukkit.getOfflinePlayer(uuid).getName();
+        if (isSafePlayerName(bukkitName)) return bukkitName;
+        return uuid.toString();
+    }
+
+    public Optional<String> resolveRewardPlayerName(UUID uuid) {
+        if (uuid == null) return Optional.empty();
+        try {
+            AEdenPlayers api = EdenPlayersAPI.get();
+            if (api != null) {
+                Optional<PlayerProfile> profile = api.players().profile(uuid);
+                if (profile.isPresent() && isRewardPlayerName(profile.get().getUsername())) {
+                    return Optional.of(profile.get().getUsername());
                 }
             }
+        } catch (RuntimeException ignored) {
         }
+        return Optional.empty();
+    }
 
-        return uuid.toString();
+    static boolean isSafePlayerName(String name) {
+        return name != null && name.length() <= 32 && name.matches("[A-Za-z0-9_.-]+");
+    }
+
+    static boolean isRewardPlayerName(String name) {
+        return isSafePlayerName(name) && name.length() <= 32;
     }
 }

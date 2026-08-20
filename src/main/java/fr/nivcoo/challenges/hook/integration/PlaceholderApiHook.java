@@ -18,11 +18,6 @@ public final class PlaceholderApiHook implements BukkitHook<HookContext> {
     }
 
     @Override
-    public boolean enabled(HookContext context) {
-        return context.cfg().hooks.placeholderApi.enabled;
-    }
-
-    @Override
     public void load(HookContext context) {
         context.plugin().registerPlaceholders();
     }

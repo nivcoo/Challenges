@@ -1,6 +1,7 @@
 package fr.nivcoo.challenges.command.commands;
 
 import fr.nivcoo.challenges.Challenges;
+import fr.nivcoo.challenges.challenges.ChallengeRole;
 import fr.nivcoo.utilsz.platform.bukkit.commands.BukkitCommand;
 import org.bukkit.command.CommandSender;
 
@@ -19,8 +20,22 @@ public class DeleteDatasCMD implements BukkitCommand {
     @Override
     public void execute(CommandSender sender, String label, String[] args) {
         Challenges plugin = Challenges.get();
-        plugin.getCacheManager().resetAllData();
-        sender.sendMessage(plugin.cfg().messages.commands.successDeleteDatas);
+        if (plugin.getChallengesManager().role() != ChallengeRole.COORDINATOR) {
+            sender.sendMessage("§cCette commande est réservée au serveur coordinateur.");
+            return;
+        }
+        plugin.resetRankingAsync().whenComplete((ignored, error) -> {
+            Runnable feedback = () -> {
+                if (error == null) {
+                    sender.sendMessage(plugin.cfg().messages.commands.successDeleteDatas);
+                } else {
+                    sender.sendMessage("§cLa réinitialisation des challenges a échoué. Consultez la console.");
+                    plugin.getLogger().severe("Unable to reset challenge ranking: " + error.getMessage());
+                }
+            };
+            if (org.bukkit.Bukkit.isPrimaryThread()) feedback.run();
+            else org.bukkit.Bukkit.getScheduler().runTask(plugin, feedback);
+        });
     }
 
     @Override public List<String> tabComplete(CommandSender sender, String label, String[] args) { return List.of(); }

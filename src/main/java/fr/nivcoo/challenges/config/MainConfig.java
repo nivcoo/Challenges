@@ -1,12 +1,12 @@
 package fr.nivcoo.challenges.config;
 
-import fr.nivcoo.challenges.challenges.challenges.Types;
+import fr.nivcoo.challenges.challenges.ChallengeRole;
 import fr.nivcoo.utilsz.core.config.ConfigManager;
 import fr.nivcoo.utilsz.core.config.annotations.Section;
 import fr.nivcoo.utilsz.core.config.common.DatabaseConfig;
 import fr.nivcoo.utilsz.core.config.common.MessagingConfig;
+import fr.nivcoo.utilsz.core.config.validation.Validatable;
 import net.kyori.adventure.text.Component;
-import org.bukkit.Sound;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -14,9 +14,10 @@ import java.util.List;
 import java.util.Map;
 
 @SuppressWarnings("unused")
-public final class MainConfig {
+public final class MainConfig implements Validatable {
     public DatabaseConfig database = new DatabaseConfig("sqlite", "database.db", "challenges", "root");
     public MessagingConfig messaging = new MessagingConfig(false, "challenges");
+    public Cluster cluster = new Cluster();
     public int interval = 0;
     public int timeout = 1200;
     public int countdownNumber = 10;
@@ -24,45 +25,56 @@ public final class MainConfig {
     public Sounds sound = new Sounds();
     public List<Integer> whitelistedHours = List.of();
     public List<String> blacklistedWorld = List.of("invest", "auto_jump");
-    public Map<String, ChallengeEntry> challenges = defaultChallenges();
     public Rewards rewards = new Rewards();
     public Messages messages = new Messages();
-    public Hooks hooks = new Hooks();
 
-    @Section
-    public static final class Hooks {
-        public Hook placeholderApi = new Hook();
-        public Hook wildTools = new Hook();
-        public Hook wildStacker = new Hook();
+    @Override
+    public void validate() {
+        if (database == null || messaging == null || sound == null || rewards == null
+                || messages == null || rewards.forAll == null || rewards.top == null) {
+            throw new IllegalArgumentException("Required Challenges configuration sections are missing.");
+        }
+        if (sound.messages == null || sound.messages.isBlank() || sound.add == null || sound.add.isBlank()
+                || sound.remove == null || sound.remove.isBlank() || sound.messages.length() > 128
+                || sound.add.length() > 128 || sound.remove.length() > 128) {
+            throw new IllegalArgumentException("Challenge sound names must not be blank.");
+        }
+        if (cluster == null || cluster.role == null) {
+            throw new IllegalArgumentException("Challenges cluster role must be configured.");
+        }
+        if (cluster.heartbeatInterval <= 0 || cluster.participantTimeout < cluster.heartbeatInterval
+                || cluster.settlementGrace <= 0
+                || cluster.settlementTimeout < cluster.settlementGrace) {
+            throw new IllegalArgumentException("Invalid Challenges cluster timing configuration.");
+        }
+        if (interval < 0 || timeout <= 0 || countdownNumber < 0 || playersNeeded < 0) {
+            throw new IllegalArgumentException("Challenge timings and player limits must be positive.");
+        }
+        if (whitelistedHours == null || blacklistedWorld == null) {
+            throw new IllegalArgumentException("Challenge world/hour policies must not be null.");
+        }
+        if (whitelistedHours.stream().anyMatch(hour -> hour == null || hour < 0 || hour > 23)) {
+            throw new IllegalArgumentException("whitelistedHours must contain values between 0 and 23.");
+        }
+        if (blacklistedWorld.stream().anyMatch(world -> world == null || world.isBlank() || world.length() > 128)) {
+            throw new IllegalArgumentException("blacklistedWorld contains an invalid world name.");
+        }
     }
 
     @Section
-    public static final class Hook {
-        public boolean enabled = true;
+    public static final class Cluster {
+        public ChallengeRole role = ChallengeRole.PARTICIPANT;
+        public int heartbeatInterval = 10;
+        public int participantTimeout = 45;
+        public int settlementGrace = 8;
+        public int settlementTimeout = 60;
     }
 
     @Section
     public static final class Sounds {
-        public Sound messages = Sound.ENTITY_EXPERIENCE_ORB_PICKUP;
-        public Sound add = Sound.ENTITY_EXPERIENCE_ORB_PICKUP;
-        public Sound remove = Sound.BLOCK_ANVIL_BREAK;
-    }
-
-    @Section
-    public static final class ChallengeEntry {
-        public Component message = Component.empty();
-        public Types challenge = Types.BLOCK_BREAK;
-        public List<String> requirements = new ArrayList<>();
-        public boolean countPreviousBlocks = false;
-
-        public ChallengeEntry() {
-        }
-
-        public ChallengeEntry(String message, Types challenge, List<String> requirements) {
-            this.message = text(message);
-            this.challenge = challenge;
-            this.requirements = requirements;
-        }
+        public String messages = "ENTITY_EXPERIENCE_ORB_PICKUP";
+        public String add = "ENTITY_EXPERIENCE_ORB_PICKUP";
+        public String remove = "BLOCK_ANVIL_BREAK";
     }
 
     @Section
@@ -208,8 +220,8 @@ public final class MainConfig {
             );
         }
 
-        @Section
-        public static final class TemplatePoints {
+    @Section
+    public static final class TemplatePoints {
             public String point = "Point";
             public String points = "Points";
             public Component display = text("(+{0} {1})");
@@ -225,12 +237,6 @@ public final class MainConfig {
 
     public static Component text(String raw) {
         return ConfigManager.parseDynamic(raw);
-    }
-
-    private static Map<String, ChallengeEntry> defaultChallenges() {
-        Map<String, ChallengeEntry> challenges = new LinkedHashMap<>();
-        challenges.put("0", new ChallengeEntry("Casser de la Stone", Types.BLOCK_BREAK, List.of("STONE:0")));
-        return challenges;
     }
 
     private static Map<String, RewardGroup> defaultTopRewards() {

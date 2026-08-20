@@ -19,8 +19,9 @@ public class EndCMD implements BukkitCommand {
     @Override
     public void execute(CommandSender sender, String label, String[] args) {
         Challenges plugin = Challenges.get();
-        plugin.getChallengesManager().endChallengeGlobally();
-        sender.sendMessage(plugin.cfg().messages.commands.successEnd);
+        if (plugin.getChallengesManager().endChallengeGlobally()) {
+            sender.sendMessage(plugin.cfg().messages.commands.successEnd);
+        }
     }
 
     @Override public List<String> tabComplete(CommandSender sender, String label, String[] args) { return List.of(); }

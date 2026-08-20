@@ -1,12 +1,9 @@
 package fr.nivcoo.challenges.messaging;
 
 public final class MessageActionName {
-    public static final String RANKING_UPDATE = "ranking_update";
-    public static final String RANKING_GLOBAL_RESET = "ranking_global_reset";
-    public static final String CHALLENGE_START = "challenge_start";
-    public static final String CHALLENGE_SCORE = "challenge_score";
-    public static final String CHALLENGE_STOP = "challenge_stop";
-    public static final String CHALLENGE_END = "challenge_end";
+    public static final String CHALLENGE_STATE = "challenge_state";
+    public static final String CHALLENGE_STATE_REQUEST = "challenge_state_request";
+    public static final String CHALLENGE_PROGRESS_BATCH_REQUEST = "challenge_progress_batch_request";
 
     private MessageActionName() {
     }

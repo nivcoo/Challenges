@@ -19,8 +19,9 @@ public class StartCMD implements BukkitCommand {
     @Override
     public void execute(CommandSender sender, String label, String[] args) {
         Challenges plugin = Challenges.get();
-        plugin.getChallengesManager().startChallenge();
-        sender.sendMessage(plugin.cfg().messages.commands.successStart);
+        if (plugin.getChallengesManager().startChallenge()) {
+            sender.sendMessage(plugin.cfg().messages.commands.successStart);
+        }
     }
 
     @Override public List<String> tabComplete(CommandSender sender, String label, String[] args) { return List.of(); }

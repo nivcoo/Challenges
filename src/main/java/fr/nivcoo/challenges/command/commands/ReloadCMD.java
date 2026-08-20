@@ -19,6 +19,10 @@ public class ReloadCMD implements BukkitCommand {
     @Override
     public void execute(CommandSender sender, String label, String[] args) {
         Challenges plugin = Challenges.get();
+        if (plugin.getChallengesManager().isReloadUnsafe()) {
+            sender.sendMessage("§cLe rechargement est bloqué pendant un challenge actif afin de ne perdre aucun progrès.");
+            return;
+        }
         plugin.reload();
         sender.sendMessage(plugin.cfg().messages.commands.successReload);
     }

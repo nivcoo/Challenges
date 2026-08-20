@@ -1,8 +1,5 @@
 package fr.nivcoo.challenges.storage;
 
-import fr.nivcoo.challenges.Challenges;
-import fr.nivcoo.challenges.messaging.action.RankingUpdateAction;
-import fr.nivcoo.challenges.storage.model.ChallengePlayerModel;
 import fr.nivcoo.challenges.storage.model.ChallengeRankingModel;
 import fr.nivcoo.utilsz.core.database.DatabaseManager;
 import fr.nivcoo.utilsz.core.database.ModelRepository;
@@ -13,102 +10,52 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class Database {
+    private final DatabaseManager manager;
     private final ModelRepository<ChallengeRankingModel> ranking;
-    private final ModelRepository<ChallengePlayerModel> players;
 
     public Database(DatabaseManager manager) {
+        this.manager = manager;
         this.ranking = manager.model(ChallengeRankingModel.MODEL);
-        this.players = manager.model(ChallengePlayerModel.MODEL);
     }
 
     public void initDB() {
         try {
             ranking.createTable();
-            players.createTable();
         } catch (SQLException e) {
-            Challenges.get().getLogger().warning("Erreur lors de la création des tables Challenges: " + e.getMessage());
+            throw new IllegalStateException("Unable to initialize Challenges ranking tables.", e);
         }
     }
 
-    public void updatePlayerScore(UUID uuid, int score) {
-        try {
-            if (ranking.exists("uuid = ?", uuid)) {
-                ranking.update(Map.of("score", score), "uuid = ?", uuid);
-            } else {
-                ranking.insert(new ChallengeRankingModel(uuid, score));
+    public Map<UUID, Integer> addPlayerScores(Map<UUID, Integer> additions) throws SQLException {
+        if (additions == null || additions.isEmpty()) return Map.of();
+        return manager.transaction(connection -> {
+            Map<UUID, Integer> updated = new HashMap<>();
+            for (Map.Entry<UUID, Integer> entry : additions.entrySet()) {
+                UUID playerId = entry.getKey();
+                int addition = entry.getValue() == null ? 0 : entry.getValue();
+                if (playerId == null || addition <= 0) continue;
+                ChallengeRankingModel existing = ranking.find(connection).where("uuid", playerId).limit(1).all()
+                        .stream().findFirst().orElse(null);
+                int newScore = Math.addExact(existing == null ? 0 : existing.score(), addition);
+                if (existing == null) {
+                    ranking.insert(connection, new ChallengeRankingModel(playerId, newScore));
+                } else {
+                    ranking.update(connection, Map.of("score", newScore), "uuid = ?", playerId);
+                }
+                updated.put(playerId, newScore);
             }
-            Challenges.get().getBus().publish(new RankingUpdateAction(uuid, score));
-        } catch (SQLException e) {
-            Challenges.get().getLogger().severe("Failed to update player score: " + e.getMessage());
-        }
+            return Map.copyOf(updated);
+        });
     }
 
-    public int getPlayerScore(UUID uuid) {
-        try {
-            return ranking.find().where("uuid", uuid).limit(1).all().stream()
-                    .findFirst()
-                    .map(ChallengeRankingModel::score)
-                    .orElse(0);
-        } catch (SQLException e) {
-            Challenges.get().getLogger().severe("Failed to get player score: " + e.getMessage());
-        }
-        return 0;
-    }
-
-    public Map<UUID, Integer> getAllPlayersScore() {
+    public Map<UUID, Integer> getAllPlayersScoreStrict() throws SQLException {
         Map<UUID, Integer> scores = new HashMap<>();
-        try {
-            for (ChallengeRankingModel model : ranking.all()) {
-                scores.put(model.uuid(), model.score());
-            }
-        } catch (SQLException e) {
-            Challenges.get().getLogger().severe("Failed to load all challenge scores: " + e.getMessage());
-        }
+        for (ChallengeRankingModel model : ranking.all()) scores.put(model.uuid(), model.score());
         return scores;
     }
 
-    public void clearDB() {
-        try {
-            ranking.clear();
-        } catch (SQLException e) {
-            Challenges.get().getLogger().severe("Failed to clear challenge ranking: " + e.getMessage());
-        }
+    public void clearDBStrict() throws SQLException {
+        ranking.clear();
     }
 
-    public void savePlayerName(UUID uuid, String name) {
-        if (name == null || name.isBlank()) return;
-        try {
-            if (players.exists("player_uuid = ?", uuid)) {
-                players.update(Map.of("player_name", name), "player_uuid = ?", uuid);
-            } else {
-                players.insert(new ChallengePlayerModel(uuid, name));
-            }
-        } catch (SQLException e) {
-            Challenges.get().getLogger().warning("Erreur SQL savePlayerName: " + e.getMessage());
-        }
-    }
-
-    public String getPlayerName(UUID uuid) {
-        try {
-            return players.find().where("player_uuid", uuid).limit(1).all().stream()
-                    .findFirst()
-                    .map(ChallengePlayerModel::playerName)
-                    .orElse(null);
-        } catch (SQLException e) {
-            Challenges.get().getLogger().warning("Erreur SQL getPlayerName: " + e.getMessage());
-        }
-        return null;
-    }
-
-    public Map<UUID, String> getAllPlayerNames() {
-        Map<UUID, String> all = new HashMap<>();
-        try {
-            for (ChallengePlayerModel model : players.all()) {
-                all.put(model.playerUuid(), model.playerName());
-            }
-        } catch (SQLException e) {
-            Challenges.get().getLogger().warning("Erreur SQL getAllPlayerNames: " + e.getMessage());
-        }
-        return all;
-    }
 }

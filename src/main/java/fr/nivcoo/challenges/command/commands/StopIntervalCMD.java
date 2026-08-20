@@ -19,8 +19,9 @@ public class StopIntervalCMD implements BukkitCommand {
     @Override
     public void execute(CommandSender sender, String label, String[] args) {
         Challenges plugin = Challenges.get();
-        plugin.getChallengesManager().stopChallengeTasks();
-        sender.sendMessage(plugin.cfg().messages.commands.successStopInterval);
+        if (plugin.getChallengesManager().stopChallengeTasks()) {
+            sender.sendMessage(plugin.cfg().messages.commands.successStopInterval);
+        }
     }
 
     @Override public List<String> tabComplete(CommandSender sender, String label, String[] args) { return List.of(); }
