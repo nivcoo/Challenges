@@ -235,9 +235,9 @@ public final class MainConfig {
 
     private static Map<String, RewardGroup> defaultTopRewards() {
         Map<String, RewardGroup> top = new LinkedHashMap<>();
-        top.put("1", new RewardGroup("1 Clé Démoniaque + 7.500$", List.of("cr give to %player% demoniaque 1", "eco give %player% 7500")));
-        top.put("2", new RewardGroup("2 Clés Bestial + 5.000$", List.of("cr give to %player% bestial 2", "eco give %player% 5000")));
-        top.put("3", new RewardGroup("1 Clé Bestial + 2.500$", List.of("cr give to %player% bestial 1", "eco give %player% 2500")));
+        top.put("1", new RewardGroup("1 Clé Ancienne + 7.500$", List.of("cr give to %player% Ancienne 1", "eco give %player% 7500")));
+        top.put("2", new RewardGroup("2 Clés Argent + 5.000$", List.of("cr give to %player% Argent 2", "eco give %player% 5000")));
+        top.put("3", new RewardGroup("1 Clé Argent + 2.500$", List.of("cr give to %player% Argent 1", "eco give %player% 2500")));
         top.put("4", new RewardGroup("2 Clés Saisonnière + 2.500$", List.of("cr give to %player% saisonniere 2", "eco give %player% 2500")));
         top.put("5", new RewardGroup("2 Clés de Quête + 2.500$", List.of("cr give to %player% quete 2", "eco give %player% 2500")));
         return top;
