@@ -56,12 +56,13 @@ public final class ChallengesManager {
     }
 
     public record ActiveReadPage(ChallengeRun run, ChallengeRunPhase phase,
-                                 long effectiveEndsAt, String message,
+                                 long effectiveEndsAt, String message, String displayName,
                                  long stateRevision, long rankingRevision,
                                  int total, boolean resyncRequired,
                                  List<ReadScore> scores) {
         public ActiveReadPage {
             message = message == null ? "" : message;
+            displayName = displayName == null ? "" : displayName;
             scores = List.copyOf(scores);
         }
     }
@@ -219,6 +220,7 @@ public final class ChallengesManager {
         if (expectedStateRevision > 0L && expectedStateRevision != revision) {
             return new ActiveReadPage(activeRun, activeRun == null ? ChallengeRunPhase.IDLE : runPhase,
                     effectiveEndsAt, activeChallenge == null ? "" : activeChallenge.message(),
+                    activeChallenge == null ? "" : activeChallenge.displayName(),
                     revision, rankingRevision, sortedScoresCache.size(), true, List.of());
         }
 
@@ -232,6 +234,7 @@ public final class ChallengesManager {
         }
         return new ActiveReadPage(activeRun, activeRun == null ? ChallengeRunPhase.IDLE : runPhase,
                 effectiveEndsAt, activeChallenge == null ? "" : activeChallenge.message(),
+                activeChallenge == null ? "" : activeChallenge.displayName(),
                 revision, rankingRevision, entries.size(), false, page);
     }
 

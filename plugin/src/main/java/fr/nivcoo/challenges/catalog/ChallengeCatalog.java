@@ -8,6 +8,7 @@ import fr.nivcoo.challenges.config.MainConfig;
 import fr.nivcoo.utilsz.core.config.ConfigManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import java.util.HashSet;
 
 public final class ChallengeCatalog {
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
+    private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
 
     private final Map<String, Challenge> challenges;
     private final Map<String, String> digests;
@@ -90,6 +92,7 @@ public final class ChallengeCatalog {
                     id,
                     objective,
                     message,
+                    PLAIN.serialize(entry.message == null ? Component.empty() : entry.message),
                     List.copyOf(topRewards),
                     legacy(config.rewards.forAll.message),
                     List.copyOf(config.rewards.forAll.commands),

@@ -102,6 +102,7 @@ public final class CachedChallengeReadService implements ChallengeReadService {
                 run.runId(),
                 run.generation(),
                 run.challengeId(),
+                page.displayName(),
                 run.startsAt(),
                 run.endsAt(),
                 page.effectiveEndsAt(),
