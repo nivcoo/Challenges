@@ -11,4 +11,8 @@ public interface ChallengeReadService {
 
     CompletionStage<ChallengeLeaderboardPage> lifetimePage(int offset, int limit,
                                                             long expectedRankingRevision);
+
+    void addInvalidationListener(Runnable listener);
+
+    void removeInvalidationListener(Runnable listener);
 }

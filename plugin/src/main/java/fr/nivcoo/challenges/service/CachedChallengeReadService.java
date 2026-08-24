@@ -22,9 +22,13 @@ public final class CachedChallengeReadService implements ChallengeReadService {
     private static final int MAX_PAGE_SIZE = 250;
 
     private final Challenges plugin;
+    private final ChallengeReadInvalidationPublisher invalidations;
 
     public CachedChallengeReadService(Challenges plugin) {
         this.plugin = plugin;
+        this.invalidations = new ChallengeReadInvalidationPublisher(
+                task -> Bukkit.getScheduler().runTask(plugin, task)
+        );
     }
 
     @Override
@@ -74,6 +78,29 @@ public final class CachedChallengeReadService implements ChallengeReadService {
                     scores
             );
         });
+    }
+
+    @Override
+    public void addInvalidationListener(Runnable listener) {
+        invalidations.addListener(listener);
+    }
+
+    @Override
+    public void removeInvalidationListener(Runnable listener) {
+        invalidations.removeListener(listener);
+    }
+
+    public void invalidate() {
+        try {
+            invalidations.invalidate();
+        } catch (RuntimeException exception) {
+            plugin.getLogger().warning("Unable to schedule a challenge read-model invalidation: "
+                    + exception.getMessage());
+        }
+    }
+
+    public void close() {
+        invalidations.close();
     }
 
     private <T> CompletionStage<T> onMain(Supplier<T> supplier) {

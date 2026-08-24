@@ -5,7 +5,7 @@
     <parent>
         <groupId>fr.nivcoo</groupId>
         <artifactId>Challenges-parent</artifactId>
-        <version>1.0.2</version>
+        <version>1.1.0</version>
     </parent>
 
     <artifactId>ChallengesAPI</artifactId>

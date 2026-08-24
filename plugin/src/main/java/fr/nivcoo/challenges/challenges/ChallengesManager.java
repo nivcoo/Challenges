@@ -82,6 +82,8 @@ public final class ChallengesManager {
     private final Challenges plugin;
     private final MainConfig config;
     private final ChallengeCatalog catalog;
+    private final Runnable readModelChanged;
+    private final CoalescingReadModelRefresh scoreReadModelRefresh;
     private final Set<String> blacklistedWorlds;
     private final ChallengeScoreLedger ledger = new ChallengeScoreLedger();
     private final Set<UUID> closedRuns = new LinkedHashSet<>();
@@ -125,6 +127,7 @@ public final class ChallengesManager {
     private LinkedHashMap<UUID, BigDecimal> sortedScoresCache = new LinkedHashMap<>();
     private List<Map.Entry<UUID, BigDecimal>> sortedScoreEntriesCache = List.of();
     private Map<UUID, Integer> placeCache = Map.of();
+    private final Set<UUID> pendingScoreActionBars = new LinkedHashSet<>();
 
     private BukkitTask intervalTask;
     private BukkitTask runTicker;
@@ -136,14 +139,19 @@ public final class ChallengesManager {
     private long earliestFinalizationAt;
     private long lastBackpressureWarningAt;
 
-    public ChallengesManager(ChallengeCatalog catalog) {
-        this(catalog, 0L);
+    public ChallengesManager(ChallengeCatalog catalog, Runnable readModelChanged) {
+        this(catalog, 0L, readModelChanged);
     }
 
-    public ChallengesManager(ChallengeCatalog catalog, long initialRankingRevision) {
+    public ChallengesManager(ChallengeCatalog catalog, long initialRankingRevision, Runnable readModelChanged) {
         this.plugin = Challenges.get();
         this.config = plugin.cfg();
         this.catalog = catalog;
+        this.readModelChanged = Objects.requireNonNull(readModelChanged, "readModelChanged");
+        this.scoreReadModelRefresh = new CoalescingReadModelRefresh(
+                task -> plugin.getServer().getScheduler().runTask(plugin, task),
+                this::flushScoreReadModelRefresh
+        );
         this.rankingRevision = Math.max(0L, initialRankingRevision);
         this.rankingRefreshTarget = this.rankingRevision;
         this.blacklistedWorlds = config.blacklistedWorld.stream()
@@ -173,6 +181,7 @@ public final class ChallengesManager {
         latestGeneration = Math.max(latestGeneration, System.currentTimeMillis());
         rankingRevision = Math.max(rankingRevision, System.currentTimeMillis());
         rankingRefreshTarget = rankingRevision;
+        markReadModelChanged();
         plugin.getLogger().info("Coordinator boot generation is " + latestGeneration
                 + "; any unfinished pre-restart challenge is fenced closed.");
         startIntervalLocal(false);
@@ -216,6 +225,7 @@ public final class ChallengesManager {
 
     public ActiveReadPage activeReadPage(int offset, int limit, long expectedStateRevision) {
         ensureMainThread();
+        refreshSortedScoresCache();
         long revision = sortedScoresRevision;
         if (expectedStateRevision > 0L && expectedStateRevision != revision) {
             return new ActiveReadPage(activeRun, activeRun == null ? ChallengeRunPhase.IDLE : runPhase,
@@ -258,6 +268,7 @@ public final class ChallengesManager {
         ensureMainThread();
         if (config.cluster.role != ChallengeRole.COORDINATOR) return;
         rankingRevision = Math.addExact(rankingRevision, 1L);
+        markReadModelChanged();
         plugin.getBus().publish(ChallengeStateAction.ranking(plugin.getBus().instanceId(), rankingRevision));
     }
 
@@ -266,7 +277,8 @@ public final class ChallengesManager {
     }
 
     private void refreshRankingIfNeeded(long incomingRevision, String authorityInstanceId, boolean force) {
-        if ((!force && incomingRevision <= rankingRevision) || !isKnownAuthority(authorityInstanceId)) return;
+        if (incomingRevision < 0L || (!force && incomingRevision <= rankingRevision)
+                || !isKnownAuthority(authorityInstanceId)) return;
         rankingRefreshTarget = force ? incomingRevision : Math.max(rankingRefreshTarget, incomingRevision);
         if (rankingRefreshInFlight) return;
         rankingRefreshInFlight = true;
@@ -281,7 +293,8 @@ public final class ChallengesManager {
             }
             if (!isKnownAuthority(authorityInstanceId)) return;
             plugin.getCacheManager().replaceRanking(scores);
-            rankingRevision = Math.max(rankingRevision, requestedRevision);
+            rankingRevision = force ? requestedRevision : Math.max(rankingRevision, requestedRevision);
+            markReadModelChanged();
             if (rankingRefreshTarget > rankingRevision) {
                 refreshRankingIfNeeded(rankingRefreshTarget, authorityInstanceId, false);
             }
@@ -397,6 +410,7 @@ public final class ChallengesManager {
 
         runTicker = Bukkit.getScheduler().runTaskTimer(plugin, this::tickRun, 1L, 20L);
         tickRun();
+        markReadModelChanged();
     }
 
     private void tickRun() {
@@ -484,6 +498,7 @@ public final class ChallengesManager {
         effectiveEndsAt = cutoffAt;
         cancel(runTicker);
         runTicker = null;
+        markReadModelChanged();
 
         ChallengeTrackingSession session = trackingSession;
         trackingSession = ChallengeTrackingSession.NOOP;
@@ -592,6 +607,7 @@ public final class ChallengesManager {
             plugin.getLogger().warning("Ignored invalid final score snapshot for run " + action.runId() + ".");
             return;
         }
+        refreshSortedScoresCache(true);
         markRunClosed(action.runId());
         closeTrackingImmediately();
         cancel(runTicker);
@@ -975,6 +991,7 @@ public final class ChallengesManager {
             updates.put(applied.playerId(), new ChallengeScoreEntry(
                     applied.playerId(), ChallengeAmount.canonical(applied.rawBalance()), applied.playerRevision()));
         }
+        if (!appliedDeltas.isEmpty()) requestScoreReadModelRefresh();
 
         ChallengeProgressBatchResponse response = new ChallengeProgressBatchResponse(run.authorityInstanceId(),
                 run.runId(), run.generation(), request.participantInstanceId(), request.batchSequence(), request.batchId(),
@@ -1081,14 +1098,17 @@ public final class ChallengesManager {
 
     private boolean applyScoreUpdates(List<ChallengeScoreEntry> updates, long stateRevision) {
         boolean valid = true;
+        boolean changed = false;
         for (ChallengeScoreEntry update : updates) {
             if (!ledger.applyRemote(update, stateRevision)) {
                 valid = false;
                 continue;
             }
+            changed = true;
             Player player = Bukkit.getPlayer(update.playerId());
-            if (player != null) sendActionBarMessage(player);
+            if (player != null) pendingScoreActionBars.add(player.getUniqueId());
         }
+        if (changed) requestScoreReadModelRefresh();
         return valid;
     }
 
@@ -1303,7 +1323,6 @@ public final class ChallengesManager {
         appliedStateSyncAttempt = attempt;
         if (authorityChanged) {
             rememberRetiredAuthority(knownAuthorityInstanceId);
-            rankingRevision = -1L;
             rankingRefreshTarget = -1L;
             rankingRefreshInFlight = false;
             rankingRefreshEpoch++;
@@ -1343,6 +1362,7 @@ public final class ChallengesManager {
                 plugin.getLogger().warning("Ignored invalid score snapshot for run " + snapshot.run().runId() + ".");
                 return;
             }
+            refreshSortedScoresCache(true);
         }
         if (activeRun != null && activeRun.matches(snapshot.run().runId(), snapshot.run().generation())) {
             reconcileBatchSequence(snapshot.nextExpectedBatchSequence());
@@ -1522,7 +1542,11 @@ public final class ChallengesManager {
     }
 
     private void refreshSortedScoresCache() {
-        if (sortedScoresRevision == ledger.stateRevision()) return;
+        refreshSortedScoresCache(false);
+    }
+
+    private void refreshSortedScoresCache(boolean force) {
+        if (!force && sortedScoresRevision == ledger.stateRevision()) return;
         sortedScoresCache = ledger.sortedScores();
         sortedScoreEntriesCache = sortedScoresCache.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
@@ -1532,6 +1556,33 @@ public final class ChallengesManager {
         for (UUID playerId : sortedScoresCache.keySet()) places.put(playerId, ++place);
         placeCache = Map.copyOf(places);
         sortedScoresRevision = ledger.stateRevision();
+        markReadModelChanged();
+    }
+
+    private void requestScoreReadModelRefresh() {
+        try {
+            scoreReadModelRefresh.request();
+        } catch (RuntimeException exception) {
+            plugin.getLogger().warning("Unable to defer the challenge score read-model refresh: "
+                    + exception.getMessage());
+            flushScoreReadModelRefresh();
+        }
+    }
+
+    private void flushScoreReadModelRefresh() {
+        ensureMainThread();
+        refreshSortedScoresCache();
+        if (pendingScoreActionBars.isEmpty()) return;
+        List<UUID> players = List.copyOf(pendingScoreActionBars);
+        pendingScoreActionBars.clear();
+        for (UUID playerId : players) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) sendActionBarMessage(player);
+        }
+    }
+
+    private void markReadModelChanged() {
+        readModelChanged.run();
     }
 
     public String getPlayerNameProgressByPlace(int place) {
@@ -1704,6 +1755,8 @@ public final class ChallengesManager {
 
     public void disablePlugin() {
         ensureMainThread();
+        scoreReadModelRefresh.close();
+        pendingScoreActionBars.clear();
         rankingRefreshEpoch++;
         rankingRefreshInFlight = false;
         if (stateSyncInFlight != null) stateSyncInFlight.cancel(false);
@@ -1730,6 +1783,12 @@ public final class ChallengesManager {
     }
 
     private void clearActiveRun() {
+        boolean readModelWasVisible = activeRun != null
+                || runPhase != ChallengeRunPhase.IDLE
+                || effectiveEndsAt != 0L
+                || ledger.stateRevision() != 0L
+                || sortedScoresRevision != 0L
+                || !sortedScoresCache.isEmpty();
         closeTrackingImmediately();
         cancel(runTicker);
         cancel(finalizationTask);
@@ -1755,11 +1814,13 @@ public final class ChallengesManager {
         drainAcknowledgements.clear();
         expectedParticipants.clear();
         batchDeduplicator.clear();
+        pendingScoreActionBars.clear();
         ledger.clear();
         sortedScoresRevision = 0L;
         sortedScoresCache = new LinkedHashMap<>();
         sortedScoreEntriesCache = List.of();
         placeCache = Map.of();
+        if (readModelWasVisible) markReadModelChanged();
     }
 
     private void resetParticipantSequence() {

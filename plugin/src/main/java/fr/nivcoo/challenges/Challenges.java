@@ -73,7 +73,7 @@ public class Challenges extends JavaPlugin implements AChallenges {
     private HookContext hookContext;
     private boolean placeholdersRegistered;
     private BoundedStorageExecutor storageExecutor;
-    private ChallengeReadService readService;
+    private CachedChallengeReadService readService;
 
     @Override
     public void onEnable() {
@@ -86,8 +86,8 @@ public class Challenges extends JavaPlugin implements AChallenges {
             loadTimeUtil();
             loadCacheManager();
 
-            challengesManager = new ChallengesManager(catalog);
             readService = new CachedChallengeReadService(this);
+            challengesManager = new ChallengesManager(catalog, readService::invalidate);
             ChallengesAPI.register(this);
             registerHooks();
             bus.start();
@@ -166,7 +166,10 @@ public class Challenges extends JavaPlugin implements AChallenges {
     @Override
     public void onDisable() {
         ChallengesAPI.unregister(this);
-        readService = null;
+        if (readService != null) {
+            readService.close();
+            readService = null;
+        }
         if (challengesManager != null) {
             challengesManager.disablePlugin();
         }
@@ -205,7 +208,7 @@ public class Challenges extends JavaPlugin implements AChallenges {
         catalog = reloadedCatalog;
         loadTimeUtil();
         if (hookContext != null) hookContext.cancelTasks();
-        challengesManager = new ChallengesManager(catalog, inheritedRankingRevision);
+        challengesManager = new ChallengesManager(catalog, inheritedRankingRevision, readService::invalidate);
         registerHooks();
         challengesManager.enable();
         if (config.cluster.role == ChallengeRole.COORDINATOR) {
