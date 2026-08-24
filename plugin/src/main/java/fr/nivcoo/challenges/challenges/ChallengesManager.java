@@ -104,6 +104,7 @@ public final class ChallengesManager {
     private long rankingRevision;
     private long rankingRefreshTarget;
     private boolean rankingRefreshInFlight;
+    private boolean rankingRefreshRequiresSwap;
     private long rankingRefreshEpoch;
     private ChallengeStateAction lastFinalizedState;
     private long effectiveEndsAt;
@@ -277,13 +278,16 @@ public final class ChallengesManager {
     }
 
     private void refreshRankingIfNeeded(long incomingRevision, String authorityInstanceId, boolean force) {
-        if (incomingRevision < 0L || (!force && incomingRevision <= rankingRevision)
+        boolean replacementRequired = force || rankingRefreshRequiresSwap;
+        if (incomingRevision < 0L || (!replacementRequired && incomingRevision <= rankingRevision)
                 || !isKnownAuthority(authorityInstanceId)) return;
+        if (force) rankingRefreshRequiresSwap = true;
         rankingRefreshTarget = force ? incomingRevision : Math.max(rankingRefreshTarget, incomingRevision);
         if (rankingRefreshInFlight) return;
         rankingRefreshInFlight = true;
         long requestedRevision = rankingRefreshTarget;
         long refreshEpoch = rankingRefreshEpoch;
+        boolean replaceOnSuccess = rankingRefreshRequiresSwap;
         plugin.loadRankingAsync().whenComplete((scores, error) -> runOnMain(() -> {
             if (refreshEpoch != rankingRefreshEpoch) return;
             rankingRefreshInFlight = false;
@@ -293,7 +297,8 @@ public final class ChallengesManager {
             }
             if (!isKnownAuthority(authorityInstanceId)) return;
             plugin.getCacheManager().replaceRanking(scores);
-            rankingRevision = force ? requestedRevision : Math.max(rankingRevision, requestedRevision);
+            rankingRevision = replaceOnSuccess ? requestedRevision : Math.max(rankingRevision, requestedRevision);
+            if (replaceOnSuccess) rankingRefreshRequiresSwap = false;
             markReadModelChanged();
             if (rankingRefreshTarget > rankingRevision) {
                 refreshRankingIfNeeded(rankingRefreshTarget, authorityInstanceId, false);
@@ -1325,6 +1330,7 @@ public final class ChallengesManager {
             rememberRetiredAuthority(knownAuthorityInstanceId);
             rankingRefreshTarget = -1L;
             rankingRefreshInFlight = false;
+            rankingRefreshRequiresSwap = true;
             rankingRefreshEpoch++;
         }
         knownAuthorityInstanceId = snapshot.authorityInstanceId();
