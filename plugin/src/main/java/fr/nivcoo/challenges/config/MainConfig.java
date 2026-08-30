@@ -2,6 +2,7 @@ package fr.nivcoo.challenges.config;
 
 import fr.nivcoo.challenges.challenges.ChallengeRole;
 import fr.nivcoo.utilsz.core.config.ConfigManager;
+import fr.nivcoo.utilsz.core.config.annotations.Comment;
 import fr.nivcoo.utilsz.core.config.annotations.Section;
 import fr.nivcoo.utilsz.core.config.common.DatabaseConfig;
 import fr.nivcoo.utilsz.core.config.common.MessagingConfig;
@@ -11,7 +12,9 @@ import net.kyori.adventure.text.Component;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @SuppressWarnings("unused")
 public final class MainConfig implements Validatable {
@@ -23,6 +26,7 @@ public final class MainConfig implements Validatable {
     public int countdownNumber = 10;
     public int playersNeeded = 1;
     public Sounds sound = new Sounds();
+    public Hud hud = new Hud();
     public List<Integer> whitelistedHours = List.of();
     public List<String> blacklistedWorld = List.of("invest", "auto_jump");
     public Rewards rewards = new Rewards();
@@ -30,7 +34,7 @@ public final class MainConfig implements Validatable {
 
     @Override
     public void validate() {
-        if (database == null || messaging == null || sound == null || rewards == null
+        if (database == null || messaging == null || sound == null || hud == null || rewards == null
                 || messages == null || rewards.forAll == null || rewards.top == null) {
             throw new IllegalArgumentException("Required Challenges configuration sections are missing.");
         }
@@ -59,6 +63,84 @@ public final class MainConfig implements Validatable {
         if (blacklistedWorld.stream().anyMatch(world -> world == null || world.isBlank() || world.length() > 128)) {
             throw new IllegalArgumentException("blacklistedWorld contains an invalid world name.");
         }
+        validateHud();
+    }
+
+    private void validateHud() {
+        if (!hud.enabled) return;
+        if (hud.animation == null || hud.rankingBadge == null) {
+            throw new IllegalArgumentException("hud.animation and hud.rankingBadge are required.");
+        }
+        if (hud.priority < -10_000 || hud.priority > 10_000
+                || hud.retentionPriority < -10_000 || hud.retentionPriority > 10_000) {
+            throw new IllegalArgumentException("HUD priorities must be between -10000 and 10000.");
+        }
+        requireOneOf(hud.region, "hud.region", Set.of("TOP_LEFT", "TOP_CENTER", "TOP_RIGHT"));
+        requireOneOf(hud.capacityPolicy, "hud.capacityPolicy", Set.of("STANDARD", "OPPORTUNISTIC"));
+        requireSemanticId(hud.layout, "hud.layout");
+        requireSemanticId(hud.countdownStyle, "hud.countdownStyle");
+        requireSemanticId(hud.activeStyle, "hud.activeStyle");
+        requireSemanticId(hud.drainingStyle, "hud.drainingStyle");
+        if (hud.showIcon) requireSemanticId(hud.icon, "hud.icon");
+        if (hud.showCountdownProgress) {
+            requireSemanticId(hud.countdownProgressStyle, "hud.countdownProgressStyle");
+        }
+        if (hud.showActiveProgress) {
+            requireSemanticId(hud.activeProgressStyle, "hud.activeProgressStyle");
+        }
+        if (hud.title == null || hud.objectiveLine == null || hud.countdownLine == null
+                || hud.scoreLine == null || hud.timerLine == null || hud.drainingLine == null
+                || hud.unrankedPlace == null) {
+            throw new IllegalArgumentException("HUD text templates must not be null.");
+        }
+        validateHudAnimation();
+        if (!hud.rankingBadge.enabled) return;
+        if (hud.rankingBadge.priority < -10_000 || hud.rankingBadge.priority > 10_000) {
+            throw new IllegalArgumentException("HUD ranking badge priority must be between -10000 and 10000.");
+        }
+        if (hud.rankingBadge.durationTicks <= 0
+                || hud.rankingBadge.accumulationWindowTicks <= 0) {
+            throw new IllegalArgumentException("HUD ranking badge durations must be positive.");
+        }
+        requireOneOf(hud.rankingBadge.policy, "hud.rankingBadge.policy",
+                Set.of("REPLACE", "ACCUMULATE", "QUEUE"));
+    }
+
+    private void validateHudAnimation() {
+        Hud.Animation animation = hud.animation;
+        if (!animation.enabled) return;
+        if (animation.frameDurationTicks <= 0 || animation.frameDurationTicks > 1200) {
+            throw new IllegalArgumentException("hud.animation.frameDurationTicks must be between 1 and 1200.");
+        }
+        requireOneOf(animation.line, "hud.animation.line",
+                Set.of("TITLE", "OBJECTIVE", "COUNTDOWN", "SCORE", "TIMER", "DRAINING"));
+        if (animation.colors == null || animation.colors.size() < 2 || animation.colors.size() > 32
+                || animation.colors.stream().anyMatch(color ->
+                color == null || !color.matches("#[0-9a-fA-F]{6}"))) {
+            throw new IllegalArgumentException(
+                    "hud.animation.colors must contain between 2 and 32 hexadecimal colors.");
+        }
+        Set<String> phases = Set.of("COUNTDOWN", "ACTIVE", "DRAINING");
+        if (animation.phases == null || animation.phases.isEmpty()
+                || animation.phases.stream().anyMatch(phase -> phase == null
+                || !phases.contains(phase.strip().toUpperCase(Locale.ROOT)))) {
+            throw new IllegalArgumentException(
+                    "hud.animation.phases must contain COUNTDOWN, ACTIVE or DRAINING.");
+        }
+    }
+
+    private static void requireOneOf(String value, String field, Set<String> accepted) {
+        String normalized = value == null ? "" : value.strip().toUpperCase(Locale.ROOT);
+        if (!accepted.contains(normalized)) {
+            throw new IllegalArgumentException(field + " must be one of " + accepted + '.');
+        }
+    }
+
+    private static void requireSemanticId(String value, String field) {
+        String normalized = value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
+        if (!normalized.matches("[a-z][a-z0-9_-]*")) {
+            throw new IllegalArgumentException(field + " must be a semantic identifier.");
+        }
     }
 
     @Section
@@ -75,6 +157,59 @@ public final class MainConfig implements Validatable {
         public String messages = "ENTITY_EXPERIENCE_ORB_PICKUP";
         public String add = "ENTITY_EXPERIENCE_ORB_PICKUP";
         public String remove = "BLOCK_ANVIL_BREAK";
+    }
+
+    @Section
+    public static final class Hud {
+        @Comment("Utilise une card EdenHUD lorsque la feature HUD est disponible pour le joueur. L'action bar reste le fallback.")
+        public boolean enabled = true;
+        public String region = "TOP_CENTER";
+        public int priority = 1_200;
+        public int retentionPriority = 1_200;
+        public String capacityPolicy = "STANDARD";
+        @Comment("Le layout wide est la grande card prévue pour les objectifs longs.")
+        public String layout = "wide";
+        public boolean showIcon = true;
+        public String icon = "star";
+        public String countdownStyle = "warning";
+        public String activeStyle = "info";
+        public String drainingStyle = "muted";
+        public boolean showCountdownProgress = true;
+        public String countdownProgressStyle = "warning";
+        public boolean showActiveProgress = true;
+        public String activeProgressStyle = "accent";
+        @Comment("Variables : {challenge}, {challenge_id}, {objective}, {score}, {place}, {place_number}, {time}, {time_value}, {time_unit}, {remaining_seconds}, {total_seconds}, {phase}.")
+        public Component title = text("&eDéfi journalier");
+        public Component objectiveLine = text("{objective}");
+        public Component countdownLine = text("&eLancement dans &f{time}");
+        public Component scoreLine = text("&bScore &f{score} &8• &aClassement &f{place}");
+        public Component timerLine = text("&eTemps restant &f{time}");
+        public Component drainingLine = text("&eClassement en cours de calcul…");
+        public Component unrankedPlace = text("&7Non classé");
+        public Animation animation = new Animation();
+        public RankingBadge rankingBadge = new RankingBadge();
+
+        @Section
+        public static final class Animation {
+            @Comment("Séquence pilotée par l'horloge unique d'EdenHUD ; aucun scheduler n'est créé dans Challenges.")
+            public boolean enabled = true;
+            public int frameDurationTicks = 8;
+            @Comment("Ligne animée : TITLE, OBJECTIVE, COUNTDOWN, SCORE, TIMER ou DRAINING.")
+            public String line = "TITLE";
+            public List<String> colors = List.of("#F6C945", "#FFE58A", "#FFF4C2", "#FFE58A");
+            public List<String> phases = List.of("COUNTDOWN", "ACTIVE");
+        }
+
+        @Section
+        public static final class RankingBadge {
+            @Comment("Affiche sur la card le nombre de places gagnées : +1, +2, etc.")
+            public boolean enabled = true;
+            public boolean showLosses = false;
+            public int priority = 0;
+            public int durationTicks = 60;
+            public int accumulationWindowTicks = 60;
+            public String policy = "ACCUMULATE";
+        }
     }
 
     @Section

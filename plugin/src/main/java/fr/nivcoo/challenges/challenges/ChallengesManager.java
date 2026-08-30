@@ -10,6 +10,8 @@ import fr.nivcoo.challenges.messaging.response.ChallengeProgressBatchResponse;
 import fr.nivcoo.challenges.messaging.response.ChallengeStateSnapshot;
 import fr.nivcoo.challenges.messaging.rpc.ChallengeProgressBatchRequest;
 import fr.nivcoo.challenges.messaging.rpc.ChallengeStateRequest;
+import fr.nivcoo.challenges.service.ChallengeHudBridge;
+import fr.nivcoo.challenges.service.ChallengeHudView;
 import fr.nivcoo.challenges.service.tracking.ChallengeTrackingDecision;
 import fr.nivcoo.challenges.service.tracking.ChallengeTrackingDirection;
 import fr.nivcoo.challenges.service.tracking.ChallengeTrackingService;
@@ -128,7 +130,8 @@ public final class ChallengesManager {
     private LinkedHashMap<UUID, BigDecimal> sortedScoresCache = new LinkedHashMap<>();
     private List<Map.Entry<UUID, BigDecimal>> sortedScoreEntriesCache = List.of();
     private Map<UUID, Integer> placeCache = Map.of();
-    private final Set<UUID> pendingScoreActionBars = new LinkedHashSet<>();
+    private final Set<UUID> pendingScoreDisplays = new LinkedHashSet<>();
+    private final Map<UUID, PlaceChange> pendingPlaceChanges = new LinkedHashMap<>();
 
     private BukkitTask intervalTask;
     private BukkitTask runTicker;
@@ -456,9 +459,11 @@ public final class ChallengesManager {
         }
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isBlacklistedWorld(player.getWorld().getName())) {
-                sendActionBarMessage(player);
+            if (isBlacklistedWorld(player.getWorld().getName())) {
+                plugin.hud().clear(player.getUniqueId());
+                continue;
             }
+            sendActionBarMessage(player);
         }
     }
 
@@ -504,6 +509,7 @@ public final class ChallengesManager {
         cancel(runTicker);
         runTicker = null;
         markReadModelChanged();
+        invalidateHudDisplays();
 
         ChallengeTrackingSession session = trackingSession;
         trackingSession = ChallengeTrackingSession.NOOP;
@@ -1111,7 +1117,7 @@ public final class ChallengesManager {
             }
             changed = true;
             Player player = Bukkit.getPlayer(update.playerId());
-            if (player != null) pendingScoreActionBars.add(player.getUniqueId());
+            if (player != null) pendingScoreDisplays.add(player.getUniqueId());
         }
         if (changed) requestScoreReadModelRefresh();
         return valid;
@@ -1461,9 +1467,73 @@ public final class ChallengesManager {
         return plugin.getTimeUtil().getTimeAndTypeBySecond(remaining);
     }
 
+    public Optional<ChallengeHudView> hudView(Player player) {
+        ensureMainThread();
+        ChallengeRun run = activeRun;
+        Challenge challenge = activeChallenge;
+        if (player == null || !player.isOnline() || run == null || challenge == null
+                || runPhase == ChallengeRunPhase.IDLE || runPhase == ChallengeRunPhase.FINALIZED
+                || isBlacklistedWorld(player.getWorld().getName())
+                || (config.cluster.role == ChallengeRole.PARTICIPANT && !stateSynchronized)) {
+            return Optional.empty();
+        }
+
+        long now = System.currentTimeMillis();
+        ChallengeHudView.Phase phase;
+        long remainingSeconds;
+        long totalSeconds;
+        if (draining || runPhase == ChallengeRunPhase.DRAINING || now >= effectiveEndsAt) {
+            phase = ChallengeHudView.Phase.DRAINING;
+            remainingSeconds = 0L;
+            totalSeconds = secondsCeil(Math.max(1L, effectiveEndsAt - run.startsAt()));
+        } else if (now < run.startsAt()) {
+            phase = ChallengeHudView.Phase.COUNTDOWN;
+            remainingSeconds = secondsCeil(run.startsAt() - now);
+            totalSeconds = Math.max(1L, Math.max(remainingSeconds, config.countdownNumber));
+        } else {
+            phase = ChallengeHudView.Phase.ACTIVE;
+            remainingSeconds = secondsCeil(effectiveEndsAt - now);
+            totalSeconds = secondsCeil(Math.max(1L, effectiveEndsAt - run.startsAt()));
+        }
+        return Optional.of(new ChallengeHudView(
+                run.runId(),
+                phase,
+                challenge.id(),
+                challenge.displayName(),
+                LEGACY.deserialize(challenge.message()),
+                ChallengeAmount.canonical(getScoreOfPlayer(player.getUniqueId())),
+                getPlaceOfUUID(player.getUniqueId()),
+                remainingSeconds,
+                totalSeconds
+        ));
+    }
+
+    public void refreshDisplay(UUID playerUuid) {
+        ensureMainThread();
+        Player player = Bukkit.getPlayer(playerUuid);
+        if (player == null || !player.isOnline()) return;
+        if (isBlacklistedWorld(player.getWorld().getName())) {
+            plugin.hud().clear(playerUuid);
+            return;
+        }
+        if (routeToHud(player)) return;
+        ChallengeRun run = activeRun;
+        if (run == null || runPhase != ChallengeRunPhase.ACTIVE) return;
+        long now = System.currentTimeMillis();
+        if (now < run.startsAt()) {
+            long remaining = secondsCeil(run.startsAt() - now);
+            TimePair<Long, String> time = plugin.getTimeUtil().getTimeAndTypeBySecond(remaining);
+            sendActionBarMessage(player, format(config.messages.actionBar.countdown,
+                    String.valueOf(time.getFirst()), time.getSecond()));
+        } else if (isChallengeStarted()) {
+            sendActionBarMessage(player);
+        }
+    }
+
     public void sendActionBarMessage(Player player) {
         if (player == null || isBlacklistedWorld(player.getWorld().getName())
                 || !isChallengeStarted()) return;
+        if (routeToHud(player)) return;
         TimePair<Long, String> countdown = getCountdown();
         if (countdown == null) return;
         String message = format(config.messages.actionBar.running.message,
@@ -1483,14 +1553,29 @@ public final class ChallengesManager {
 
     public void sendActionBarMessage(String message) {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!isBlacklistedWorld(player.getWorld().getName())) {
-                sendActionBarMessage(player, message);
+            if (isBlacklistedWorld(player.getWorld().getName())) {
+                plugin.hud().clear(player.getUniqueId());
+                continue;
             }
+            sendActionBarMessage(player, message);
         }
     }
 
     public void sendActionBarMessage(Player player, String message) {
+        if (player == null || routeToHud(player)) return;
         player.sendActionBar(LEGACY.deserialize(message));
+    }
+
+    private boolean routeToHud(Player player) {
+        ChallengeHudBridge hud = plugin.hud();
+        UUID playerUuid = player.getUniqueId();
+        if (!hud.active(playerUuid) || hudView(player).isEmpty()) return false;
+        hud.invalidate(playerUuid);
+        return true;
+    }
+
+    private static long secondsCeil(long millis) {
+        return Math.max(0L, (millis + 999L) / 1000L);
     }
 
     public void sendTitleMessage(String title, String subtitle, int time, int fadeInTick, int fadeOutTick) {
@@ -1553,6 +1638,7 @@ public final class ChallengesManager {
 
     private void refreshSortedScoresCache(boolean force) {
         if (!force && sortedScoresRevision == ledger.stateRevision()) return;
+        Map<UUID, Integer> previousPlaces = placeCache;
         sortedScoresCache = ledger.sortedScores();
         sortedScoreEntriesCache = sortedScoresCache.entrySet().stream()
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
@@ -1561,8 +1647,29 @@ public final class ChallengesManager {
         int place = 0;
         for (UUID playerId : sortedScoresCache.keySet()) places.put(playerId, ++place);
         placeCache = Map.copyOf(places);
+        if (force) pendingPlaceChanges.clear();
+        else queuePlaceChanges(previousPlaces, placeCache);
         sortedScoresRevision = ledger.stateRevision();
         markReadModelChanged();
+    }
+
+    private void queuePlaceChanges(
+            Map<UUID, Integer> previousPlaces,
+            Map<UUID, Integer> currentPlaces
+    ) {
+        if (activeRun == null || previousPlaces.isEmpty()) return;
+        for (Map.Entry<UUID, Integer> entry : currentPlaces.entrySet()) {
+            int previous = previousPlaces.getOrDefault(entry.getKey(), 0);
+            int current = entry.getValue();
+            if (previous <= 0 || current <= 0 || previous == current) continue;
+            pendingPlaceChanges.compute(entry.getKey(), (playerUuid, existing) -> {
+                PlaceChange change = new PlaceChange(
+                        existing == null ? previous : existing.previousPlace(),
+                        current
+                );
+                return change.previousPlace() == change.currentPlace() ? null : change;
+            });
+        }
     }
 
     private void requestScoreReadModelRefresh() {
@@ -1578,12 +1685,44 @@ public final class ChallengesManager {
     private void flushScoreReadModelRefresh() {
         ensureMainThread();
         refreshSortedScoresCache();
-        if (pendingScoreActionBars.isEmpty()) return;
-        List<UUID> players = List.copyOf(pendingScoreActionBars);
-        pendingScoreActionBars.clear();
+        flushPendingPlaceChanges();
+        if (pendingScoreDisplays.isEmpty()) return;
+        List<UUID> players = List.copyOf(pendingScoreDisplays);
+        pendingScoreDisplays.clear();
         for (UUID playerId : players) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) sendActionBarMessage(player);
+        }
+    }
+
+    private void flushPendingPlaceChanges() {
+        ChallengeRun run = activeRun;
+        if (run == null || pendingPlaceChanges.isEmpty()) {
+            pendingPlaceChanges.clear();
+            return;
+        }
+        Map<UUID, PlaceChange> changes = Map.copyOf(pendingPlaceChanges);
+        pendingPlaceChanges.clear();
+        ChallengeHudBridge hud = plugin.hud();
+        for (Map.Entry<UUID, PlaceChange> entry : changes.entrySet()) {
+            PlaceChange change = entry.getValue();
+            hud.rankingChanged(entry.getKey(), run.runId(),
+                    change.previousPlace(), change.currentPlace());
+            hud.invalidate(entry.getKey());
+        }
+    }
+
+    private void invalidateHudDisplays() {
+        ChallengeHudBridge hud = plugin.hud();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            hud.invalidate(player.getUniqueId());
+        }
+    }
+
+    private void clearHudDisplays() {
+        ChallengeHudBridge hud = plugin.hud();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            hud.clear(player.getUniqueId());
         }
     }
 
@@ -1762,7 +1901,8 @@ public final class ChallengesManager {
     public void disablePlugin() {
         ensureMainThread();
         scoreReadModelRefresh.close();
-        pendingScoreActionBars.clear();
+        pendingScoreDisplays.clear();
+        pendingPlaceChanges.clear();
         rankingRefreshEpoch++;
         rankingRefreshInFlight = false;
         if (stateSyncInFlight != null) stateSyncInFlight.cancel(false);
@@ -1820,13 +1960,15 @@ public final class ChallengesManager {
         drainAcknowledgements.clear();
         expectedParticipants.clear();
         batchDeduplicator.clear();
-        pendingScoreActionBars.clear();
+        pendingScoreDisplays.clear();
+        pendingPlaceChanges.clear();
         ledger.clear();
         sortedScoresRevision = 0L;
         sortedScoresCache = new LinkedHashMap<>();
         sortedScoreEntriesCache = List.of();
         placeCache = Map.of();
         if (readModelWasVisible) markReadModelChanged();
+        clearHudDisplays();
     }
 
     private void resetParticipantSequence() {
@@ -1899,6 +2041,9 @@ public final class ChallengesManager {
 
     private String legacy(Component component) {
         return LEGACY.serialize(component == null ? Component.empty() : component);
+    }
+
+    private record PlaceChange(int previousPlace, int currentPlace) {
     }
 
     private record PendingProgress(ChallengeProgressMutation mutation, CompletableFuture<Void> completion) {

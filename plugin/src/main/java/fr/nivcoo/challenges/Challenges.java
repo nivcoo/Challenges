@@ -18,10 +18,12 @@ import fr.nivcoo.challenges.config.MainConfig;
 import fr.nivcoo.challenges.hook.core.HookContext;
 import fr.nivcoo.challenges.hook.integration.EdenQuestsHook;
 import fr.nivcoo.challenges.hook.integration.PlaceholderApiHook;
+import fr.nivcoo.challenges.hook.integration.edenhud.EdenHudHook;
 import fr.nivcoo.challenges.messaging.action.ChallengeStateAction;
 import fr.nivcoo.challenges.messaging.rpc.ChallengeProgressBatchRequest;
 import fr.nivcoo.challenges.messaging.rpc.ChallengeStateRequest;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
+import fr.nivcoo.challenges.service.ChallengeHudBridge;
 import fr.nivcoo.challenges.service.tracking.ChallengeTrackingService;
 import fr.nivcoo.challenges.service.CachedChallengeReadService;
 import fr.nivcoo.challenges.service.ChallengeStateWakeupListener;
@@ -173,6 +175,10 @@ public class Challenges extends JavaPlugin implements AChallenges {
         if (challengesManager != null) {
             challengesManager.disablePlugin();
         }
+        if (hookContext != null) {
+            hookContext.close();
+            hookContext = null;
+        }
 
         if (bus != null) bus.close();
         if (dbManager != null && storageExecutor != null) {
@@ -183,7 +189,6 @@ public class Challenges extends JavaPlugin implements AChallenges {
             }
         }
         if (storageExecutor != null) storageExecutor.close();
-        if (hookContext != null) hookContext.cancelTasks();
     }
 
     public void reload() {
@@ -201,13 +206,16 @@ public class Challenges extends JavaPlugin implements AChallenges {
         if (challengesManager != null) {
             challengesManager.disablePlugin();
         }
+        if (hookContext != null) {
+            hookContext.close();
+            hookContext = null;
+        }
 
         HandlerList.unregisterAll(this);
         configManager = reloadedManager;
         config = reloadedConfig;
         catalog = reloadedCatalog;
         loadTimeUtil();
-        if (hookContext != null) hookContext.cancelTasks();
         challengesManager = new ChallengesManager(catalog, inheritedRankingRevision, readService::invalidate);
         registerHooks();
         challengesManager.enable();
@@ -228,6 +236,7 @@ public class Challenges extends JavaPlugin implements AChallenges {
 
         List<Function<HookContext, BukkitHook<HookContext>>> hooks = new ArrayList<>();
         hooks.add(PlaceholderApiHook::new);
+        hooks.add(EdenHudHook::new);
         if (config.cluster.role == ChallengeRole.PARTICIPANT
                 && Bukkit.getPluginManager().isPluginEnabled("EdenQuests")) {
             hooks.add(EdenQuestsHook::new);
@@ -277,6 +286,10 @@ public class Challenges extends JavaPlugin implements AChallenges {
 
     public MessageBus getBus() {
         return bus;
+    }
+
+    public ChallengeHudBridge hud() {
+        return hookContext == null ? ChallengeHudBridge.unavailable() : hookContext.hud();
     }
 
     @Override
