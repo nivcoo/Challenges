@@ -88,6 +88,10 @@ public final class MainConfig implements Validatable {
         if (hud.showActiveProgress) {
             requireSemanticId(hud.activeProgressStyle, "hud.activeProgressStyle");
         }
+        if (hud.titleColor == null || !hud.titleColor.matches("#[0-9a-fA-F]{6}")) {
+            throw new IllegalArgumentException(
+                    "hud.titleColor must be a hexadecimal color.");
+        }
         if (hud.title == null || hud.objectiveLine == null || hud.countdownLine == null
                 || hud.scoreLine == null || hud.timerLine == null || hud.drainingLine == null
                 || hud.unrankedPlace == null) {
@@ -164,23 +168,25 @@ public final class MainConfig implements Validatable {
         @Comment("Utilise une card EdenHUD lorsque la feature HUD est disponible pour le joueur. L'action bar reste le fallback.")
         public boolean enabled = true;
         public String region = "TOP_CENTER";
-        public int priority = 1_200;
-        public int retentionPriority = 1_200;
+        public int priority = 900;
+        public int retentionPriority = 900;
         public String capacityPolicy = "STANDARD";
         @Comment("Le layout wide est la grande card prévue pour les objectifs longs.")
         public String layout = "wide";
         public boolean showIcon = true;
         public String icon = "star";
-        public String countdownStyle = "warning";
-        public String activeStyle = "info";
+        public String countdownStyle = "violet";
+        public String activeStyle = "violet";
         public String drainingStyle = "muted";
         public boolean showCountdownProgress = true;
-        public String countdownProgressStyle = "warning";
+        public String countdownProgressStyle = "violet";
         public boolean showActiveProgress = true;
-        public String activeProgressStyle = "accent";
+        public String activeProgressStyle = "violet";
+        @Comment("Couleur fixe du titre, remplacée par les frames lorsque l'animation est active.")
+        public String titleColor = "#F06AB8";
         @Comment("Variables : {challenge}, {challenge_id}, {objective}, {score}, {place}, {place_number}, {time}, {time_value}, {time_unit}, {remaining_seconds}, {total_seconds}, {phase}.")
-        public Component title = text("&eDéfi journalier");
-        public Component objectiveLine = text("{objective}");
+        public Component title = text("Défi journalier • {objective}");
+        public Component objectiveLine = Component.empty();
         public Component countdownLine = text("&eLancement dans &f{time}");
         public Component scoreLine = text("&bScore &f{score} &8• &aClassement &f{place}");
         public Component timerLine = text("&eTemps restant &f{time}");
@@ -196,7 +202,7 @@ public final class MainConfig implements Validatable {
             public int frameDurationTicks = 8;
             @Comment("Ligne animée : TITLE, OBJECTIVE, COUNTDOWN, SCORE, TIMER ou DRAINING.")
             public String line = "TITLE";
-            public List<String> colors = List.of("#F6C945", "#FFE58A", "#FFF4C2", "#FFE58A");
+            public List<String> colors = List.of("#F06AB8", "#FF8BCD", "#FFC0E4", "#FF8BCD");
             public List<String> phases = List.of("COUNTDOWN", "ACTIVE");
         }
 

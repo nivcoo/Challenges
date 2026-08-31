@@ -250,21 +250,20 @@ final class EdenHudIntegration implements ChallengeHudBridge {
             Map<String, Object> placeholders
     ) {
         Component rendered = ConfigManager.fmt(template, placeholders);
+        HudLine renderedLine = new HudLine(rendered, role);
+        if (line.equals("TITLE")) {
+            renderedLine = renderedLine.withColor(color(settings.titleColor));
+        }
         if (colorAnimation.isPresent()
                 && settings.animation.line.equalsIgnoreCase(line)
                 && settings.animation.phases.stream().anyMatch(phase ->
                 phase.equalsIgnoreCase(current.phase().name()))) {
-            rendered = recolor(rendered, colorAnimation.orElseThrow().frame(context));
+            renderedLine = renderedLine.withColor(
+                    colorAnimation.orElseThrow().frame(context));
         }
         if (!PLAIN.serialize(rendered).isBlank()) {
-            lines.add(new HudLine(rendered, role));
+            lines.add(renderedLine);
         }
-    }
-
-    private static Component recolor(Component component, TextColor color) {
-        return component.color(color).children(component.children().stream()
-                .map(child -> recolor(child, color))
-                .toList());
     }
 
     private static Optional<HudProgress> progress(
