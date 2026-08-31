@@ -93,8 +93,8 @@ public final class MainConfig implements Validatable {
                     "hud.titleColor must be a hexadecimal color.");
         }
         if (hud.title == null || hud.objectiveLine == null || hud.countdownLine == null
-                || hud.scoreLine == null || hud.timerLine == null || hud.drainingLine == null
-                || hud.unrankedPlace == null) {
+                || hud.scoreLine == null || hud.unrankedScoreLine == null
+                || hud.timerLine == null || hud.drainingLine == null || hud.unrankedPlace == null) {
             throw new IllegalArgumentException("HUD text templates must not be null.");
         }
         validateHudAnimation();
@@ -189,6 +189,7 @@ public final class MainConfig implements Validatable {
         public Component objectiveLine = Component.empty();
         public Component countdownLine = text("&eLancement dans &f{time}");
         public Component scoreLine = text("&bScore &f{score} &8• &aClassement &f{place}");
+        public Component unrankedScoreLine = text("&bScore &f{score} &8• {place}");
         public Component timerLine = text("&eTemps restant &f{time}");
         public Component drainingLine = text("&eClassement en cours de calcul…");
         public Component unrankedPlace = text("&7Non classé");
@@ -199,10 +200,10 @@ public final class MainConfig implements Validatable {
         public static final class Animation {
             @Comment("Séquence pilotée par l'horloge unique d'EdenHUD ; aucun scheduler n'est créé dans Challenges.")
             public boolean enabled = true;
-            public int frameDurationTicks = 8;
+            public int frameDurationTicks = 10;
             @Comment("Ligne animée : TITLE, OBJECTIVE, COUNTDOWN, SCORE, TIMER ou DRAINING.")
             public String line = "TITLE";
-            public List<String> colors = List.of("#F06AB8", "#FF8BCD", "#FFC0E4", "#FF8BCD");
+            public List<String> colors = List.of("#F06AB8", "#B987FF", "#47C8FF", "#B987FF");
             public List<String> phases = List.of("COUNTDOWN", "ACTIVE");
         }
 

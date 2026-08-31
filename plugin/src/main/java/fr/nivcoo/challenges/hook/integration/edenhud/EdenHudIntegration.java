@@ -180,6 +180,9 @@ final class EdenHudIntegration implements ChallengeHudBridge {
         MainConfig.Hud settings = settings();
         Map<String, Object> placeholders = placeholders(current, settings);
         List<HudLine> lines = new ArrayList<>();
+        Component scoreLine = current.place() > 0
+                ? settings.scoreLine
+                : settings.unrankedScoreLine;
         addLine(lines, settings.title, HudLineRole.LABEL, "TITLE",
                 current, context, settings, placeholders);
         addLine(lines, settings.objectiveLine, HudLineRole.BODY, "OBJECTIVE",
@@ -189,13 +192,13 @@ final class EdenHudIntegration implements ChallengeHudBridge {
                     addLine(lines, settings.countdownLine, HudLineRole.META, "COUNTDOWN",
                             current, context, settings, placeholders);
             case ACTIVE -> {
-                addLine(lines, settings.scoreLine, HudLineRole.VALUE, "SCORE",
+                addLine(lines, scoreLine, HudLineRole.VALUE, "SCORE",
                         current, context, settings, placeholders);
                 addLine(lines, settings.timerLine, HudLineRole.META, "TIMER",
                         current, context, settings, placeholders);
             }
             case DRAINING -> {
-                addLine(lines, settings.scoreLine, HudLineRole.VALUE, "SCORE",
+                addLine(lines, scoreLine, HudLineRole.VALUE, "SCORE",
                         current, context, settings, placeholders);
                 addLine(lines, settings.drainingLine, HudLineRole.META, "DRAINING",
                         current, context, settings, placeholders);
@@ -277,9 +280,11 @@ final class EdenHudIntegration implements ChallengeHudBridge {
                 && !settings.showActiveProgress) return Optional.empty();
         String variant = current.phase() == ChallengeHudView.Phase.COUNTDOWN
                 ? settings.countdownProgressStyle : settings.activeProgressStyle;
+        long maximumSeconds = current.totalSeconds();
+        long elapsedSeconds = Math.max(0L, maximumSeconds - current.remainingSeconds());
         return Optional.of(new HudProgress(
-                current.remainingSeconds(),
-                current.totalSeconds(),
+                elapsedSeconds,
+                maximumSeconds,
                 Optional.empty(),
                 variant
         ));
