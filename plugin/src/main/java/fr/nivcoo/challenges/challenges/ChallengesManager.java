@@ -3,12 +3,12 @@ package fr.nivcoo.challenges.challenges;
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.catalog.ChallengeCatalog;
 import fr.nivcoo.challenges.config.MainConfig;
+import fr.nivcoo.challenges.messaging.action.ChallengeProgressSyncAction;
 import fr.nivcoo.challenges.messaging.action.ChallengeStateAction;
-import fr.nivcoo.challenges.messaging.model.ChallengeProgressMutation;
+import fr.nivcoo.challenges.messaging.model.ChallengeProgressContribution;
+import fr.nivcoo.challenges.messaging.model.ChallengeRankingEntry;
 import fr.nivcoo.challenges.messaging.model.ChallengeScoreEntry;
-import fr.nivcoo.challenges.messaging.response.ChallengeProgressBatchResponse;
 import fr.nivcoo.challenges.messaging.response.ChallengeStateSnapshot;
-import fr.nivcoo.challenges.messaging.rpc.ChallengeProgressBatchRequest;
 import fr.nivcoo.challenges.messaging.rpc.ChallengeStateRequest;
 import fr.nivcoo.challenges.service.ChallengeHudBridge;
 import fr.nivcoo.challenges.service.ChallengeHudView;
@@ -76,10 +76,9 @@ public final class ChallengesManager {
         }
     }
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
-    private static final int PROGRESS_BATCH_SIZE = 256;
-    private static final int MAX_IN_FLIGHT_BATCHES = 1;
     private static final int MAX_BUFFERED_PROGRESS = 32_768;
     private static final int MAX_PROTOCOL_STRING = 128;
+    private static final long RANKING_RECONCILE_PERIOD_TICKS = 600L;
 
     private final Challenges plugin;
     private final MainConfig config;
@@ -93,9 +92,9 @@ public final class ChallengesManager {
     private final Map<String, Long> participantLastSeen = new HashMap<>();
     private final Map<String, Integer> participantOnlinePlayers = new HashMap<>();
     private final Set<String> expectedParticipants = new HashSet<>();
-    private final ChallengeBatchDeduplicator batchDeduplicator = new ChallengeBatchDeduplicator();
-    private final List<PendingProgress> progressBuffer = new ArrayList<>();
-    private final Map<UUID, PendingBatch> pendingBatches = new LinkedHashMap<>();
+    private final ChallengeProgressStreamRegistry progressStreams = new ChallengeProgressStreamRegistry();
+    private final Map<UUID, BigDecimal> localProgressContributions = new LinkedHashMap<>();
+    private final List<PendingProgress> pendingProgress = new ArrayList<>();
 
     private ChallengeTrackingService trackingService = ChallengeTrackingService.unavailable();
     private ChallengeTrackingSession trackingSession = ChallengeTrackingSession.NOOP;
@@ -104,9 +103,8 @@ public final class ChallengesManager {
     private String knownAuthorityInstanceId;
     private long latestGeneration;
     private long rankingRevision;
-    private long rankingRefreshTarget;
+    private long authorityRankingRevision = -1L;
     private boolean rankingRefreshInFlight;
-    private boolean rankingRefreshRequiresSwap;
     private long rankingRefreshEpoch;
     private ChallengeStateAction lastFinalizedState;
     private long effectiveEndsAt;
@@ -118,8 +116,11 @@ public final class ChallengesManager {
     private UUID synchronizedRunId;
     private long synchronizedStateRevision = -1L;
     private long lastAuthoritySnapshotAt;
-    private long nextBatchSequence = 1L;
-    private UUID sequenceRunId;
+    private boolean authorityTimedOut;
+    private UUID progressStreamId;
+    private long localProgressRevision;
+    private long acknowledgedProgressRevision;
+    private boolean progressSyncFailed;
     private long stateSyncAttempt;
     private long appliedStateSyncAttempt;
     private CompletableFuture<ChallengeStateSnapshot> stateSyncInFlight;
@@ -139,7 +140,10 @@ public final class ChallengesManager {
     private BukkitTask finalizationTask;
     private BukkitTask earliestFinalizationTask;
     private BukkitTask drainReminderTask;
-    private BukkitTask progressFlushTask;
+    private BukkitTask progressSnapshotTask;
+    private BukkitTask progressSnapshotTicker;
+    private BukkitTask authoritySnapshotTask;
+    private BukkitTask rankingReconcileTask;
     private long earliestFinalizationAt;
     private long lastBackpressureWarningAt;
 
@@ -157,7 +161,6 @@ public final class ChallengesManager {
                 this::flushScoreReadModelRefresh
         );
         this.rankingRevision = Math.max(0L, initialRankingRevision);
-        this.rankingRefreshTarget = this.rankingRevision;
         this.blacklistedWorlds = config.blacklistedWorld.stream()
                 .filter(Objects::nonNull)
                 .map(world -> world.trim().toLowerCase(Locale.ROOT))
@@ -179,15 +182,16 @@ public final class ChallengesManager {
             }
             trackingService.registerCatalog(catalog.all());
             startStateSynchronization();
+            startRankingReconciliation();
             requestState();
             return;
         }
         latestGeneration = Math.max(latestGeneration, System.currentTimeMillis());
         rankingRevision = Math.max(rankingRevision, System.currentTimeMillis());
-        rankingRefreshTarget = rankingRevision;
         markReadModelChanged();
         plugin.getLogger().info("Coordinator boot generation is " + latestGeneration
                 + "; any unfinished pre-restart challenge is fenced closed.");
+        startAuthoritySnapshots();
         startIntervalLocal(false);
     }
 
@@ -200,6 +204,9 @@ public final class ChallengesManager {
         if (config.cluster.role != ChallengeRole.PARTICIPANT || action == null
                 || action.kind() == null || !bounded(action.authorityInstanceId())) return;
         if (action.kind() == ChallengeStateAction.Kind.COORDINATOR_ONLINE) {
+            if (isKnownAuthority(action.authorityInstanceId())) {
+                applyRankingSnapshot(action.ranking(), action.rankingRevision());
+            }
             handleCoordinatorWakeup(action.authorityInstanceId());
             return;
         }
@@ -209,10 +216,13 @@ public final class ChallengesManager {
             }
             return;
         }
-        refreshRankingIfNeeded(action.rankingRevision(), action.authorityInstanceId());
+        if (action.kind() == ChallengeStateAction.Kind.RANKING) {
+            applyRankingSnapshot(action.ranking(), action.rankingRevision());
+        }
         switch (action.kind()) {
             case RANKING -> {
             }
+            case SNAPSHOT -> applyAuthoritySnapshot(action);
             case START -> applyStartFromBus(action.run());
             case SCORE -> applyScoreFromBus(action);
             case DRAIN -> applyDrainFromBus(action);
@@ -273,24 +283,132 @@ public final class ChallengesManager {
         if (config.cluster.role != ChallengeRole.COORDINATOR) return;
         rankingRevision = Math.addExact(rankingRevision, 1L);
         markReadModelChanged();
-        plugin.getBus().publish(ChallengeStateAction.ranking(plugin.getBus().instanceId(), rankingRevision));
+        plugin.getBus().publish(ChallengeStateAction.ranking(
+                plugin.getBus().instanceId(), rankingRevision, rankingSnapshot()));
     }
 
-    private void refreshRankingIfNeeded(long incomingRevision, String authorityInstanceId) {
-        refreshRankingIfNeeded(incomingRevision, authorityInstanceId, false);
+    public List<ChallengeRankingEntry> rankingSnapshot() {
+        ensureMainThread();
+        return plugin.getCacheManager().rankingEntries().stream()
+                .map(entry -> new ChallengeRankingEntry(entry.getKey(), entry.getValue()))
+                .toList();
     }
 
-    private void refreshRankingIfNeeded(long incomingRevision, String authorityInstanceId, boolean force) {
-        boolean replacementRequired = force || rankingRefreshRequiresSwap;
-        if (incomingRevision < 0L || (!replacementRequired && incomingRevision <= rankingRevision)
-                || !isKnownAuthority(authorityInstanceId)) return;
-        if (force) rankingRefreshRequiresSwap = true;
-        rankingRefreshTarget = force ? incomingRevision : Math.max(rankingRefreshTarget, incomingRevision);
+    private void startAuthoritySnapshots() {
+        cancel(authoritySnapshotTask);
+        long period = Math.max(1L, config.cluster.heartbeatInterval) * 20L;
+        authoritySnapshotTask = Bukkit.getScheduler().runTaskTimer(plugin,
+                this::publishAuthoritySnapshot, period, period);
+    }
+
+    private void publishAuthoritySnapshot() {
+        ensureMainThread();
+        if (config.cluster.role != ChallengeRole.COORDINATOR) return;
+        String authorityInstanceId = plugin.getBus().instanceId();
+        ChallengeStateAction snapshot;
+        if (activeRun != null) {
+            snapshot = ChallengeStateAction.snapshot(authorityInstanceId, activeRun.generation(), activeRun,
+                    runPhase, effectiveEndsAt, ledger.entries(), ledger.stateRevision(), rankingRevision);
+        } else if (lastFinalizedState != null) {
+            snapshot = ChallengeStateAction.snapshot(authorityInstanceId, lastFinalizedState.generation(),
+                    lastFinalizedState.run(), ChallengeRunPhase.FINALIZED,
+                    lastFinalizedState.effectiveEndsAt(), lastFinalizedState.scores(),
+                    lastFinalizedState.stateRevision(), rankingRevision);
+        } else {
+            snapshot = ChallengeStateAction.snapshot(authorityInstanceId, latestGeneration, null,
+                    ChallengeRunPhase.IDLE, 0L, List.of(), 0L, rankingRevision);
+        }
+        plugin.getBus().publish(snapshot);
+    }
+
+    private void applyAuthoritySnapshot(ChallengeStateAction action) {
+        ensureMainThread();
+        if (config.cluster.role != ChallengeRole.PARTICIPANT || action == null
+                || action.kind() != ChallengeStateAction.Kind.SNAPSHOT
+                || !isKnownAuthority(action.authorityInstanceId()) || action.phase() == null
+                || action.stateRevision() < 0L) return;
+        ChallengeRun incoming = action.run();
+        if (incoming == null) {
+            if (action.phase() != ChallengeRunPhase.IDLE || action.runId() != null
+                    || action.generation() < latestGeneration) return;
+            lastAuthoritySnapshotAt = System.currentTimeMillis();
+            authorityTimedOut = false;
+            latestGeneration = Math.max(latestGeneration, action.generation());
+            if (activeRun != null && activeRun.generation() <= action.generation()) {
+                markRunClosed(activeRun.runId());
+                clearActiveRun();
+            }
+            synchronizedRunId = null;
+            synchronizedStateRevision = action.stateRevision();
+            stateSynchronized = true;
+            return;
+        }
+        if (action.phase() == ChallengeRunPhase.IDLE
+                || !incoming.authorityInstanceId().equals(action.authorityInstanceId())
+                || !incoming.runId().equals(action.runId())
+                || incoming.generation() != action.generation()
+                || action.generation() < latestGeneration
+                || !catalog.matches(incoming.challengeId(), incoming.challengeDigest())) return;
+        lastAuthoritySnapshotAt = System.currentTimeMillis();
+        authorityTimedOut = false;
+        if (activeRun == null || !activeRun.matches(incoming.runId(), incoming.generation())) {
+            if (action.phase() == ChallengeRunPhase.FINALIZED) return;
+            applyStartInternal(incoming, true);
+        }
+        if (!matchesActive(incoming.runId(), incoming.generation())
+                || action.stateRevision() < ledger.stateRevision()) return;
+        if (action.stateRevision() != ledger.stateRevision() || !ledger.entries().equals(action.scores())) {
+            if (!ledger.restore(action.scores(), action.stateRevision())) {
+                plugin.getLogger().warning("Ignored invalid periodic score snapshot for run "
+                        + incoming.runId() + ".");
+                return;
+            }
+            refreshSortedScoresCache(true);
+        }
+        synchronizedRunId = incoming.runId();
+        synchronizedStateRevision = action.stateRevision();
+        stateSynchronized = true;
+        if (action.phase() == ChallengeRunPhase.FINALIZED) {
+            applyFinalizedInternal(ChallengeStateAction.end(activeRun, action.scores(),
+                    action.stateRevision(), action.rankingRevision()));
+            return;
+        }
+        if (action.phase() == ChallengeRunPhase.DRAINING) {
+            applyDrainInternal(incoming.runId(), incoming.generation(), action.effectiveEndsAt());
+        }
+    }
+
+    private void applyRankingSnapshot(List<ChallengeRankingEntry> entries, long incomingRevision) {
+        if (entries == null || incomingRevision < 0L || incomingRevision < authorityRankingRevision) return;
+        Map<UUID, Integer> scores = new HashMap<>();
+        for (ChallengeRankingEntry entry : entries) {
+            if (entry == null || entry.playerId() == null || entry.score() < 0
+                    || scores.putIfAbsent(entry.playerId(), entry.score()) != null) return;
+        }
+        boolean changed = !plugin.getCacheManager().getSortedScores().equals(scores);
+        if (incomingRevision == authorityRankingRevision && !changed) return;
+        rankingRefreshEpoch++;
+        rankingRefreshInFlight = false;
+        authorityRankingRevision = incomingRevision;
+        if (!changed) return;
+        plugin.getCacheManager().replaceRanking(scores);
+        bumpLocalRankingRevision(incomingRevision);
+        markReadModelChanged();
+    }
+
+    private void startRankingReconciliation() {
+        cancel(rankingReconcileTask);
+        rankingReconcileTask = Bukkit.getScheduler().runTaskTimer(plugin,
+                this::refreshRankingFromDatabase,
+                RANKING_RECONCILE_PERIOD_TICKS,
+                RANKING_RECONCILE_PERIOD_TICKS);
+    }
+
+    private void refreshRankingFromDatabase() {
+        if (config.cluster.role != ChallengeRole.PARTICIPANT) return;
         if (rankingRefreshInFlight) return;
         rankingRefreshInFlight = true;
-        long requestedRevision = rankingRefreshTarget;
         long refreshEpoch = rankingRefreshEpoch;
-        boolean replaceOnSuccess = rankingRefreshRequiresSwap;
         plugin.loadRankingAsync().whenComplete((scores, error) -> runOnMain(() -> {
             if (refreshEpoch != rankingRefreshEpoch) return;
             rankingRefreshInFlight = false;
@@ -298,15 +416,16 @@ public final class ChallengesManager {
                 plugin.getLogger().warning("Unable to resynchronize challenge ranking: " + error.getMessage());
                 return;
             }
-            if (!isKnownAuthority(authorityInstanceId)) return;
+            if (scores == null || plugin.getCacheManager().getSortedScores().equals(scores)) return;
             plugin.getCacheManager().replaceRanking(scores);
-            rankingRevision = replaceOnSuccess ? requestedRevision : Math.max(rankingRevision, requestedRevision);
-            if (replaceOnSuccess) rankingRefreshRequiresSwap = false;
+            bumpLocalRankingRevision(-1L);
             markReadModelChanged();
-            if (rankingRefreshTarget > rankingRevision) {
-                refreshRankingIfNeeded(rankingRefreshTarget, authorityInstanceId, false);
-            }
         }));
+    }
+
+    private void bumpLocalRankingRevision(long incomingRevision) {
+        long next = rankingRevision == Long.MAX_VALUE ? Long.MAX_VALUE : rankingRevision + 1L;
+        rankingRevision = Math.max(next, incomingRevision);
     }
 
     public boolean startChallenge() {
@@ -363,14 +482,12 @@ public final class ChallengesManager {
             return;
         }
 
-        boolean continuingParticipantSequence = incoming.runId().equals(sequenceRunId);
         Optional<Challenge> localDefinition = catalog.find(incoming.challengeId());
         if (localDefinition.isEmpty() || !catalog.matches(incoming.challengeId(), incoming.challengeDigest())) {
             plugin.getLogger().severe("Challenge catalogue mismatch for '" + incoming.challengeId()
                     + "' (run " + incoming.runId() + "). Tracking refused.");
             latestGeneration = Math.max(latestGeneration, incoming.generation());
             clearActiveRun();
-            resetParticipantSequence();
             return;
         }
 
@@ -386,9 +503,6 @@ public final class ChallengesManager {
         startAnnouncementSent = recoveredFromSnapshot && System.currentTimeMillis() >= incoming.startsAt();
         lastCountdownValue = Long.MIN_VALUE;
         drainAcknowledgements.clear();
-        batchDeduplicator.clear();
-        if (!continuingParticipantSequence) nextBatchSequence = 1L;
-        sequenceRunId = incoming.runId();
         ledger.clear();
         stateSynchronized = config.cluster.role == ChallengeRole.COORDINATOR;
         if (config.cluster.role == ChallengeRole.COORDINATOR) {
@@ -398,6 +512,8 @@ public final class ChallengesManager {
         }
 
         if (config.cluster.role == ChallengeRole.PARTICIPANT) {
+            progressStreamId = UUID.randomUUID();
+            startProgressSynchronization();
             try {
                 trackingSession = trackingService.activate(
                         challenge.id(),
@@ -411,7 +527,6 @@ public final class ChallengesManager {
                         + "': " + exception.getMessage());
                 markRunClosed(incoming.runId());
                 clearActiveRun();
-                resetParticipantSequence();
                 return;
             }
         }
@@ -506,6 +621,7 @@ public final class ChallengesManager {
         draining = true;
         runPhase = ChallengeRunPhase.DRAINING;
         effectiveEndsAt = cutoffAt;
+        if (config.cluster.role == ChallengeRole.PARTICIPANT) discardProgressAfter(cutoffAt);
         cancel(runTicker);
         runTicker = null;
         markReadModelChanged();
@@ -634,7 +750,6 @@ public final class ChallengesManager {
                     + ": " + throwable.getMessage());
         } finally {
             clearActiveRun();
-            resetParticipantSequence();
             if (config.cluster.role == ChallengeRole.PARTICIPANT) {
                 synchronizedRunId = null;
                 synchronizedStateRevision = -1L;
@@ -655,7 +770,6 @@ public final class ChallengesManager {
         if (!matchesActive(runId, generation)) return;
         markRunClosed(runId);
         clearActiveRun();
-        resetParticipantSequence();
         if (config.cluster.role == ChallengeRole.PARTICIPANT) {
             synchronizedRunId = null;
             synchronizedStateRevision = -1L;
@@ -793,14 +907,11 @@ public final class ChallengesManager {
             return;
         }
 
-        ChallengeProgressMutation mutation = new ChallengeProgressMutation(
-                decision.observationId(),
-                decision.playerId(),
-                signedDelta,
-                observedAt,
-                decision.world()
-        );
-        if (progressBuffer.size() >= MAX_BUFFERED_PROGRESS) {
+        if (progressSyncFailed) {
+            completion.completeExceptionally(new IllegalStateException("Challenge progress synchronization failed."));
+            return;
+        }
+        if (pendingProgress.size() >= MAX_BUFFERED_PROGRESS) {
             long now = System.currentTimeMillis();
             if (now - lastBackpressureWarningAt >= 10_000L) {
                 lastBackpressureWarningAt = now;
@@ -809,254 +920,212 @@ public final class ChallengesManager {
             completion.completeExceptionally(new IllegalStateException("Challenge progress buffer is saturated."));
             return;
         }
-        progressBuffer.add(new PendingProgress(mutation, completion));
-        if (progressBuffer.size() >= PROGRESS_BATCH_SIZE) {
-            flushProgressBuffer();
-        } else if (progressFlushTask == null) {
-            progressFlushTask = Bukkit.getScheduler().runTask(plugin, this::flushProgressBuffer);
-        }
-    }
-
-    private void flushProgressBuffer() {
-        ensureMainThread();
-        progressFlushTask = null;
-        ChallengeRun run = activeRun;
-        if (run == null) {
-            failBufferedProgress(new IllegalStateException("Challenge run is no longer active."));
+        UUID playerId = decision.playerId();
+        if (!localProgressContributions.containsKey(playerId)
+                && localProgressContributions.size() >= ChallengeScoreLedger.MAX_SCORE_ENTRIES) {
+            completion.completeExceptionally(new IllegalStateException("Challenge progress capacity reached."));
             return;
         }
-
-        while (!progressBuffer.isEmpty() && pendingBatches.size() < MAX_IN_FLIGHT_BATCHES) {
-            int size = Math.min(PROGRESS_BATCH_SIZE, progressBuffer.size());
-            List<PendingProgress> entries = new ArrayList<>(progressBuffer.subList(0, size));
-            progressBuffer.subList(0, size).clear();
-            UUID batchId = UUID.randomUUID();
-            long sequence = nextBatchSequence++;
-            ChallengeProgressBatchRequest request = new ChallengeProgressBatchRequest(
-                    run.authorityInstanceId(),
-                    run.runId(),
-                    run.generation(),
-                    plugin.getBus().instanceId(),
-                    sequence,
-                    batchId,
-                    entries.stream().map(PendingProgress::mutation).toList()
-            );
-            PendingBatch batch = new PendingBatch(run, request, entries);
-            pendingBatches.put(batchId, batch);
-            sendProgressBatch(batch, 1);
-        }
+        BigDecimal delta = ChallengeAmount.parseDelta(signedDelta);
+        BigDecimal updated = localProgressContributions.getOrDefault(playerId, BigDecimal.ZERO)
+                .add(delta).stripTrailingZeros();
+        ChallengeAmount.parseBalance(ChallengeAmount.canonical(updated));
+        long revision = Math.addExact(localProgressRevision, 1L);
+        if (updated.signum() == 0) localProgressContributions.remove(playerId);
+        else localProgressContributions.put(playerId, updated);
+        localProgressRevision = revision;
+        pendingProgress.add(new PendingProgress(revision, playerId, signedDelta, observedAt, completion));
+        scheduleProgressSnapshot();
     }
 
-    private void sendProgressBatch(PendingBatch batch, int attempt) {
-        if (pendingBatches.get(batch.request().batchId()) != batch) return;
-        if (batch.inFlight != null && !batch.inFlight.isDone()) return;
-        ChallengeRun run = batch.run();
-        if (!matchesActive(run.runId(), run.generation())
-                || !activeRun.authorityInstanceId().equals(run.authorityInstanceId())) {
-            failBatch(batch, new IllegalStateException("Challenge run is no longer active."));
-            return;
-        }
+    private void startProgressSynchronization() {
+        cancel(progressSnapshotTicker);
+        long period = Math.max(1L, config.cluster.heartbeatInterval) * 20L;
+        progressSnapshotTicker = Bukkit.getScheduler().runTaskTimer(plugin,
+                this::publishProgressSnapshot, period, period);
+    }
 
-        CompletableFuture<ChallengeProgressBatchResponse> call;
+    private void scheduleProgressSnapshot() {
+        if (progressSnapshotTask != null) return;
         try {
-            call = plugin.getBus().callTo(run.authorityInstanceId(), batch.request(),
-                    ChallengeProgressBatchResponse.class);
+            progressSnapshotTask = Bukkit.getScheduler().runTask(plugin, () -> {
+                progressSnapshotTask = null;
+                publishProgressSnapshot();
+            });
         } catch (RuntimeException exception) {
-            scheduleBatchRetry(batch, attempt, exception);
+            plugin.getLogger().warning("Unable to schedule challenge progress snapshot: "
+                    + exception.getMessage());
+        }
+    }
+
+    private void publishProgressSnapshot() {
+        ensureMainThread();
+        ChallengeRun run = activeRun;
+        if (config.cluster.role != ChallengeRole.PARTICIPANT || run == null
+                || progressStreamId == null || localProgressRevision <= 0L || progressSyncFailed) return;
+        List<ChallengeProgressContribution> contributions = localProgressContributions.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(UUID::toString)))
+                .map(entry -> new ChallengeProgressContribution(
+                        entry.getKey(), ChallengeAmount.canonical(entry.getValue())))
+                .toList();
+        long latestObservedAt = pendingProgress.stream()
+                .mapToLong(PendingProgress::observedAt)
+                .max()
+                .orElse(0L);
+        plugin.getBus().publishTo(run.authorityInstanceId(), ChallengeProgressSyncAction.snapshot(
+                run.authorityInstanceId(), run.runId(), run.generation(), plugin.getBus().instanceId(),
+                progressStreamId, localProgressRevision, latestObservedAt, contributions));
+    }
+
+    public void handleProgressSyncAction(ChallengeProgressSyncAction action) {
+        ensureMainThread();
+        if (action == null) return;
+        if (action.kind() == ChallengeProgressSyncAction.Kind.SNAPSHOT) {
+            acceptProgressSnapshot(action);
+        } else if (action.kind() == ChallengeProgressSyncAction.Kind.ACK) {
+            receiveProgressAck(action);
+        }
+    }
+
+    private void acceptProgressSnapshot(ChallengeProgressSyncAction action) {
+        if (config.cluster.role != ChallengeRole.COORDINATOR) return;
+        ChallengeRun run = activeRun;
+        if (!plugin.getBus().instanceId().equals(action.authorityInstanceId())) return;
+        if (run == null || !run.matches(action.runId(), action.generation())
+                || closedRuns.contains(action.runId())) {
+            publishProgressAck(action, 0L, false, "stale_run");
             return;
         }
-        batch.inFlight = call;
-        call.whenComplete((response, error) -> runOnMain(() -> {
-            if (pendingBatches.get(batch.request().batchId()) != batch || batch.inFlight != call) return;
-            batch.inFlight = null;
-            if (error != null || response == null) {
-                scheduleBatchRetry(batch, attempt,
-                        error == null ? new IllegalStateException("Authority returned no batch response.") : error);
+        if (!run.authorityInstanceId().equals(action.authorityInstanceId())) {
+            publishProgressAck(action, 0L, false, "stale_authority");
+            return;
+        }
+        if (!acceptParticipantReady(action.participantInstanceId())) {
+            publishProgressAck(action, 0L, false, "participant_capacity");
+            return;
+        }
+        if (action.latestObservedAt() >= effectiveEndsAt && action.latestObservedAt() > 0L) {
+            publishProgressAck(action, progressStreams.acknowledgedRevision(
+                    action.streamId(), action.participantInstanceId()), false, "after_cutoff");
+            return;
+        }
+        Map<UUID, BigDecimal> contributions = new LinkedHashMap<>();
+        for (ChallengeProgressContribution contribution : action.contributions()) {
+            if (contribution == null
+                    || contributions.putIfAbsent(contribution.playerId(), contribution.amount()) != null) {
+                publishProgressAck(action, 0L, false, "invalid_snapshot");
                 return;
             }
-            receiveProgressBatchResponse(response);
-        }));
-    }
-
-    private void receiveProgressBatchResponse(ChallengeProgressBatchResponse result) {
-        ensureMainThread();
-        if (config.cluster.role != ChallengeRole.PARTICIPANT || result == null || result.batchId() == null) return;
-        PendingBatch batch = pendingBatches.get(result.batchId());
-        boolean ownBatch = batch != null && result.participantInstanceId().equals(plugin.getBus().instanceId())
-                && result.batchSequence() == batch.request().batchSequence()
-                && pendingBatches.get(result.batchId()) == batch;
-        if (ownBatch && !result.accepted() && ("stale_authority".equals(result.reason())
-                || "stale_run".equals(result.reason()))) {
-            requestState();
-            scheduleBatchRetry(batch, batch.attempt + 1,
-                    new IllegalStateException(result.reason()));
-            return;
         }
-        if (!isActiveAuthority(result.authorityInstanceId())
-                || !matchesActive(result.runId(), result.generation())) return;
-        if (!result.accepted()) {
-            if (!ownBatch) return;
-            failBatch(batch, new IllegalStateException("Challenge progress batch was rejected: " + result.reason()));
-            return;
-        }
-        applyBatchResponseScores(result);
-        if (!ownBatch) return;
-        Set<UUID> appliedObservations = Set.copyOf(result.appliedObservationIds());
-        for (PendingProgress pending : batch.entries()) {
-            if (appliedObservations.contains(pending.mutation().observationId())) {
-                playProgressSound(pending.mutation().playerId(), pending.mutation().signedDelta());
-            }
-            pending.completion().complete(null);
-        }
-        pendingBatches.remove(batch.request().batchId(), batch);
-        resumeProgressFlush();
-    }
-
-    private void scheduleBatchRetry(PendingBatch batch, int attempt, Throwable failure) {
-        if (pendingBatches.get(batch.request().batchId()) != batch) return;
-        batch.attempt = Math.max(batch.attempt, attempt);
-        if (attempt == 1 || attempt == 3 || attempt % 20 == 0) {
-            plugin.getLogger().warning("Challenge progress batch is waiting for authority (attempt "
-                    + attempt + "): " + failure.getMessage());
-        }
-        if (attempt >= 3) requestState();
+        ChallengeProgressStreamRegistry.Preparation preparation;
         try {
-            Bukkit.getScheduler().runTaskLater(plugin,
-                    () -> sendProgressBatch(batch, attempt + 1), 20L);
+            preparation = progressStreams.prepare(action.streamId(), action.participantInstanceId(),
+                    action.revision(), contributions);
         } catch (RuntimeException exception) {
-            failBatch(batch, new IllegalStateException(
-                    "Unable to schedule challenge progress retry.", exception));
+            publishProgressAck(action, 0L, false, "invalid_snapshot");
+            return;
         }
-    }
-
-    public ChallengeProgressBatchResponse acceptProgressBatch(ChallengeProgressBatchRequest request) {
-        ensureMainThread();
-        if (config.cluster.role != ChallengeRole.COORDINATOR) return null;
-        ChallengeRun run = activeRun;
-        if (run == null || request == null || !run.matches(request.runId(), request.generation())) {
-            return rejectedCommit("stale_run", request);
+        if (preparation.status() == ChallengeProgressStreamRegistry.Status.DUPLICATE
+                || preparation.status() == ChallengeProgressStreamRegistry.Status.STALE) {
+            publishProgressAck(action, preparation.acknowledgedRevision(), true, "accepted");
+            return;
         }
-        if (!request.authorityInstanceId().equals(run.authorityInstanceId())) {
-            return rejectedCommit("stale_authority", request);
+        if (preparation.status() == ChallengeProgressStreamRegistry.Status.CONFLICT) {
+            publishProgressAck(action, preparation.acknowledgedRevision(), false, "revision_conflict");
+            return;
         }
-        if (closedRuns.contains(run.runId())) {
-            return rejectedCommit("closed_run", request);
+        if (preparation.status() == ChallengeProgressStreamRegistry.Status.CAPACITY) {
+            publishProgressAck(action, preparation.acknowledgedRevision(), false, "stream_capacity");
+            return;
         }
-        if (request.batchId() == null || request.participantInstanceId() == null
-                || request.participantInstanceId().isBlank() || request.mutations().isEmpty()
-                || request.batchSequence() <= 0L || request.batchSequence() == Long.MAX_VALUE
-                || request.participantInstanceId().length() > MAX_PROTOCOL_STRING
-                || request.mutations().size() > PROGRESS_BATCH_SIZE
-                || !validBatchShape(request.mutations())) {
-            return rejectedCommit("invalid_batch", request);
-        }
-        if (!acceptParticipantReady(request.participantInstanceId())) {
-            return rejectedCommit("participant_capacity", request);
-        }
-        ChallengeBatchDeduplicator.Check batchCheck = batchDeduplicator.inspect(
-                request.participantInstanceId(), request.batchSequence(), request.batchId(), request.mutations());
-        if (batchCheck.registration() == ChallengeBatchDeduplicator.Registration.INVALID) {
-            return rejectedCommit("invalid_batch", request);
-        }
-        if (batchCheck.registration() == ChallengeBatchDeduplicator.Registration.TAMPERED) {
-            return rejectedCommit("tampered_batch", request);
-        }
-        if (batchCheck.registration() == ChallengeBatchDeduplicator.Registration.CAPACITY_REACHED) {
-            return rejectedCommit("participant_capacity", request);
-        }
-        if (batchCheck.registration() == ChallengeBatchDeduplicator.Registration.STALE_SEQUENCE) {
-            return rejectedCommit("stale_sequence", request);
-        }
-        if (batchCheck.registration() == ChallengeBatchDeduplicator.Registration.OUT_OF_ORDER) {
-            return rejectedCommit("out_of_order", request);
-        }
-        if (batchCheck.registration() == ChallengeBatchDeduplicator.Registration.DUPLICATE) {
-            ChallengeProgressBatchResponse cached = batchCheck.cachedResponse();
-            publishScoreDelta(run, cached);
-            return cached;
-        }
-
-        expectedParticipants.add(request.participantInstanceId());
         long baseStateRevision = ledger.stateRevision();
-        Map<UUID, ChallengeScoreEntry> updates = new LinkedHashMap<>();
-        List<ChallengeProgressMutation> countableMutations = new ArrayList<>();
-        List<ChallengeScoreLedger.Delta> countableDeltas = new ArrayList<>();
-
-        for (ChallengeProgressMutation mutation : request.mutations()) {
-            if (!isCountableMutation(run, effectiveEndsAt, blacklistedWorlds, mutation)) continue;
-            countableMutations.add(mutation);
-            countableDeltas.add(new ChallengeScoreLedger.Delta(
-                    mutation.playerId(), ChallengeAmount.parseDelta(mutation.signedDelta())));
-        }
-
-        final List<ChallengeScoreLedger.Result> appliedDeltas;
+        List<ChallengeScoreLedger.Result> applied;
         try {
-            appliedDeltas = ledger.applyBatch(countableDeltas);
-        } catch (ChallengeScoreLedger.CapacityExceededException exception) {
-            ChallengeProgressBatchResponse response = rejectedCommit("score_capacity", request);
-            batchDeduplicator.remember(request.participantInstanceId(), request.batchSequence(), request.batchId(),
-                    request.mutations(), response);
-            return response;
+            applied = ledger.applyAdjustments(preparation.deltas());
+        } catch (RuntimeException exception) {
+            publishProgressAck(action, preparation.acknowledgedRevision(), false, "score_capacity");
+            return;
         }
-        for (ChallengeScoreLedger.Result applied : appliedDeltas) {
-            updates.put(applied.playerId(), new ChallengeScoreEntry(
-                    applied.playerId(), ChallengeAmount.canonical(applied.rawBalance()), applied.playerRevision()));
+        long acknowledgedRevision = progressStreams.commit(preparation);
+        if (!applied.isEmpty()) {
+            List<ChallengeScoreEntry> updates = applied.stream()
+                    .map(result -> new ChallengeScoreEntry(result.playerId(),
+                            ChallengeAmount.canonical(result.rawBalance()), result.playerRevision()))
+                    .toList();
+            requestScoreReadModelRefresh();
+            plugin.getBus().publish(ChallengeStateAction.score(run, updates,
+                    baseStateRevision, ledger.stateRevision(), rankingRevision));
         }
-        if (!appliedDeltas.isEmpty()) requestScoreReadModelRefresh();
-
-        ChallengeProgressBatchResponse response = new ChallengeProgressBatchResponse(run.authorityInstanceId(),
-                run.runId(), run.generation(), request.participantInstanceId(), request.batchSequence(), request.batchId(),
-                true, "accepted", countableMutations.stream()
-                .map(ChallengeProgressMutation::observationId).toList(),
-                List.copyOf(updates.values()), baseStateRevision, ledger.stateRevision());
-        batchDeduplicator.remember(request.participantInstanceId(), request.batchSequence(), request.batchId(),
-                request.mutations(), response);
-        publishScoreDelta(run, response);
-        return response;
+        publishProgressAck(action, acknowledgedRevision, true, "accepted");
     }
 
-    private void publishScoreDelta(ChallengeRun run, ChallengeProgressBatchResponse response) {
-        if (response.accepted() && !response.scores().isEmpty()) {
-            plugin.getBus().publish(ChallengeStateAction.score(run, response.scores(),
-                    response.baseStateRevision(), response.stateRevision(), rankingRevision));
-        }
+    private void publishProgressAck(ChallengeProgressSyncAction snapshot, long revision,
+                                    boolean accepted, String reason) {
+        plugin.getBus().publishTo(snapshot.participantInstanceId(), ChallengeProgressSyncAction.ack(
+                plugin.getBus().instanceId(), snapshot.runId(), snapshot.generation(),
+                snapshot.participantInstanceId(), snapshot.streamId(), revision, accepted, reason));
     }
 
-    private ChallengeProgressBatchResponse rejectedCommit(String reason, ChallengeProgressBatchRequest request) {
-        return new ChallengeProgressBatchResponse(plugin.getBus().instanceId(),
-                request == null ? null : request.runId(), request == null ? 0L : request.generation(),
-                request == null ? "" : request.participantInstanceId(),
-                request == null ? 0L : request.batchSequence(), request == null ? null : request.batchId(), false, reason,
-                List.of(), List.of(), -1L, ledger.stateRevision());
-    }
-
-    private boolean validBatchShape(List<ChallengeProgressMutation> mutations) {
-        Set<UUID> observations = new HashSet<>();
-        for (ChallengeProgressMutation mutation : mutations) {
-            if (mutation == null || mutation.observationId() == null || mutation.playerId() == null
-                    || !observations.add(mutation.observationId())
-                    || !bounded(mutation.world())
-                    || mutation.signedDelta() == null || mutation.signedDelta().isBlank()
-                    || mutation.signedDelta().length() > 96) return false;
-            try {
-                ChallengeAmount.parseDelta(mutation.signedDelta());
-            } catch (IllegalArgumentException exception) {
-                return false;
+    private void receiveProgressAck(ChallengeProgressSyncAction action) {
+        if (config.cluster.role != ChallengeRole.PARTICIPANT || activeRun == null
+                || !isActiveAuthority(action.authorityInstanceId())
+                || !activeRun.matches(action.runId(), action.generation())
+                || !plugin.getBus().instanceId().equals(action.participantInstanceId())
+                || !Objects.equals(progressStreamId, action.streamId())
+                || action.revision() < acknowledgedProgressRevision
+                || action.revision() > localProgressRevision) return;
+        if (!action.accepted()) {
+            if ("stale_authority".equals(action.reason()) || "stale_run".equals(action.reason())
+                    || "after_cutoff".equals(action.reason())) {
+                stateSynchronized = false;
+                requestState(activeRun.authorityInstanceId(), true);
+                return;
             }
+            if (!"revision_conflict".equals(action.reason())
+                    && !"invalid_snapshot".equals(action.reason())) return;
+            progressSyncFailed = true;
+            IllegalStateException failure = new IllegalStateException(
+                    "Challenge progress snapshot was rejected: " + action.reason());
+            for (PendingProgress pending : pendingProgress) pending.completion().completeExceptionally(failure);
+            pendingProgress.clear();
+            cancel(progressSnapshotTask);
+            cancel(progressSnapshotTicker);
+            progressSnapshotTask = null;
+            progressSnapshotTicker = null;
+            return;
         }
-        return true;
+        acknowledgedProgressRevision = action.revision();
+        Iterator<PendingProgress> iterator = pendingProgress.iterator();
+        while (iterator.hasNext()) {
+            PendingProgress pending = iterator.next();
+            if (pending.revision() > acknowledgedProgressRevision) continue;
+            playProgressSound(pending.playerId(), pending.signedDelta());
+            pending.completion().complete(null);
+            iterator.remove();
+        }
+    }
+
+    private void discardProgressAfter(long cutoffAt) {
+        boolean changed = false;
+        Iterator<PendingProgress> iterator = pendingProgress.iterator();
+        while (iterator.hasNext()) {
+            PendingProgress pending = iterator.next();
+            if (pending.observedAt() < cutoffAt) continue;
+            BigDecimal delta = ChallengeAmount.parseDelta(pending.signedDelta());
+            BigDecimal updated = localProgressContributions
+                    .getOrDefault(pending.playerId(), BigDecimal.ZERO)
+                    .subtract(delta).stripTrailingZeros();
+            if (updated.signum() == 0) localProgressContributions.remove(pending.playerId());
+            else localProgressContributions.put(pending.playerId(), updated);
+            pending.completion().complete(null);
+            iterator.remove();
+            changed = true;
+        }
+        if (changed) scheduleProgressSnapshot();
     }
 
     private boolean bounded(String value) {
         return value != null && !value.isBlank() && value.length() <= MAX_PROTOCOL_STRING;
-    }
-
-    static boolean isCountableMutation(ChallengeRun run, long cutoffAt, Set<String> blacklistedWorlds,
-                                       ChallengeProgressMutation mutation) {
-        if (run == null || mutation == null || mutation.world() == null) return false;
-        String normalizedWorld = mutation.world().trim().toLowerCase(Locale.ROOT);
-        return mutation.observedAt() >= run.startsAt() && mutation.observedAt() < cutoffAt
-                && !blacklistedWorlds.contains(normalizedWorld);
     }
 
     private boolean directionMatches(ChallengeTrackingDirection direction, BigDecimal signedDelta) {
@@ -1091,11 +1160,6 @@ public final class ChallengesManager {
         applyScoreDelta(action.scores(), action.baseStateRevision(), action.stateRevision());
     }
 
-    private void applyBatchResponseScores(ChallengeProgressBatchResponse response) {
-        if (config.cluster.role != ChallengeRole.PARTICIPANT) return;
-        applyScoreDelta(response.scores(), response.baseStateRevision(), response.stateRevision());
-    }
-
     private void applyScoreDelta(List<ChallengeScoreEntry> scores, long baseRevision, long revision) {
         if (revision <= synchronizedStateRevision) return;
         if (!stateSynchronized || baseRevision != synchronizedStateRevision
@@ -1121,30 +1185,6 @@ public final class ChallengesManager {
         }
         if (changed) requestScoreReadModelRefresh();
         return valid;
-    }
-
-    private void failBatch(PendingBatch batch, Throwable failure) {
-        if (!pendingBatches.remove(batch.request().batchId(), batch)) return;
-        completeBatchExceptionally(batch, failure);
-        resumeProgressFlush();
-    }
-
-    private void completeBatchExceptionally(PendingBatch batch, Throwable failure) {
-        for (PendingProgress pending : batch.entries()) {
-            pending.completion().completeExceptionally(failure);
-        }
-    }
-
-    private void resumeProgressFlush() {
-        if (progressBuffer.isEmpty() || progressFlushTask != null) return;
-        progressFlushTask = Bukkit.getScheduler().runTask(plugin, this::flushProgressBuffer);
-    }
-
-    private void failBufferedProgress(Throwable failure) {
-        for (PendingProgress pending : progressBuffer) {
-            pending.completion().completeExceptionally(failure);
-        }
-        progressBuffer.clear();
     }
 
     private void playProgressSound(UUID playerId, String delta) {
@@ -1227,19 +1267,11 @@ public final class ChallengesManager {
                 || knownAuthorityInstanceId == null || lastAuthoritySnapshotAt <= 0L) return;
         long timeoutMillis = Math.max(1L, config.cluster.participantTimeout) * 1000L;
         if (System.currentTimeMillis() - lastAuthoritySnapshotAt < timeoutMillis) return;
-        UUID abandonedRunId = activeRun == null ? null : activeRun.runId();
-        if (activeRun != null) clearActiveRun();
-        knownAuthorityInstanceId = null;
         stateSynchronized = false;
-        synchronizedRunId = null;
-        synchronizedStateRevision = -1L;
-        if (stateSyncInFlight != null) stateSyncInFlight.cancel(false);
-        stateSyncInFlight = null;
-        stateSyncAttempt++;
-        plugin.getLogger().warning(abandonedRunId == null
-                ? "Challenge coordinator heartbeat timed out; authority binding was cleared."
-                : "Challenge run " + abandonedRunId
-                + " was abandoned because the coordinator heartbeat timed out.");
+        if (authorityTimedOut) return;
+        authorityTimedOut = true;
+        plugin.getLogger().warning("Challenge coordinator heartbeat timed out; local progress is retained "
+                + "until the bound authority returns.");
     }
 
     private boolean acceptParticipantReady(String participantInstanceId) {
@@ -1304,14 +1336,12 @@ public final class ChallengesManager {
             snapshot = new ChallengeStateSnapshot(plugin.getBus().instanceId(),
                     lastFinalizedState.generation(), lastFinalizedState.run(), ChallengeRunPhase.FINALIZED,
                     lastFinalizedState.effectiveEndsAt(), true, lastFinalizedState.scores(),
-                    lastFinalizedState.stateRevision(), rankingRevision,
-                    batchDeduplicator.nextExpectedSequence(request.participantInstanceId()));
+                    lastFinalizedState.stateRevision(), rankingRevision);
         } else {
             snapshot = new ChallengeStateSnapshot(plugin.getBus().instanceId(), latestGeneration,
                     activeRun, activeRun == null ? ChallengeRunPhase.IDLE : runPhase,
                     effectiveEndsAt, includeScores, includeScores ? ledger.entries() : List.of(),
-                    ledger.stateRevision(), rankingRevision,
-                    batchDeduplicator.nextExpectedSequence(request.participantInstanceId()));
+                    ledger.stateRevision(), rankingRevision);
         }
         if (draining && activeRun != null) finalizeIfSettled(activeRun.runId(), activeRun.generation());
         return snapshot;
@@ -1327,21 +1357,21 @@ public final class ChallengesManager {
         if (snapshot.run() != null && (!snapshot.authorityInstanceId().equals(snapshot.run().authorityInstanceId())
                 || !catalog.matches(snapshot.run().challengeId(), snapshot.run().challengeDigest()))) return;
         if (!snapshot.scoresIncluded() && !snapshot.scores().isEmpty()) return;
-        if (snapshot.nextExpectedBatchSequence() <= 0L) return;
         boolean authorityChanged = knownAuthorityInstanceId == null
                 || !knownAuthorityInstanceId.equals(snapshot.authorityInstanceId());
-        if (!authorityChanged && snapshot.generation() < latestGeneration) return;
+        if (!authorityChanged && snapshot.generation() < latestGeneration
+                || authorityChanged && knownAuthorityInstanceId != null
+                && snapshot.generation() <= latestGeneration) return;
         appliedStateSyncAttempt = attempt;
         if (authorityChanged) {
             rememberRetiredAuthority(knownAuthorityInstanceId);
-            rankingRefreshTarget = -1L;
+            authorityRankingRevision = -1L;
             rankingRefreshInFlight = false;
-            rankingRefreshRequiresSwap = true;
             rankingRefreshEpoch++;
         }
         knownAuthorityInstanceId = snapshot.authorityInstanceId();
         lastAuthoritySnapshotAt = System.currentTimeMillis();
-        refreshRankingIfNeeded(snapshot.rankingRevision(), snapshot.authorityInstanceId(), authorityChanged);
+        authorityTimedOut = false;
         if (snapshot.run() == null) {
             if (snapshot.phase() != ChallengeRunPhase.IDLE) return;
             latestGeneration = authorityChanged ? snapshot.generation()
@@ -1350,7 +1380,6 @@ public final class ChallengesManager {
                     || activeRun.generation() <= snapshot.generation())) {
                 markRunClosed(activeRun.runId());
                 clearActiveRun();
-                resetParticipantSequence();
             }
             synchronizedRunId = null;
             synchronizedStateRevision = snapshot.stateRevision();
@@ -1377,7 +1406,6 @@ public final class ChallengesManager {
             refreshSortedScoresCache(true);
         }
         if (activeRun != null && activeRun.matches(snapshot.run().runId(), snapshot.run().generation())) {
-            reconcileBatchSequence(snapshot.nextExpectedBatchSequence());
             synchronizedRunId = activeRun.runId();
             synchronizedStateRevision = snapshot.stateRevision();
             stateSynchronized = true;
@@ -1392,26 +1420,6 @@ public final class ChallengesManager {
                 && snapshot.phase() == ChallengeRunPhase.DRAINING) {
             applyDrainInternal(activeRun.runId(), activeRun.generation(), snapshot.effectiveEndsAt());
         }
-    }
-
-    private void reconcileBatchSequence(long authorityNextExpected) {
-        if (activeRun == null || authorityNextExpected <= 0L) return;
-        PendingBatch pending = pendingBatches.values().stream().findFirst().orElse(null);
-        if (pending != null && pending.run().matches(activeRun.runId(), activeRun.generation())) {
-            nextBatchSequence = reconciledNextSequence(authorityNextExpected, pending.request().batchSequence());
-        } else {
-            nextBatchSequence = reconciledNextSequence(authorityNextExpected, null);
-        }
-        sequenceRunId = activeRun.runId();
-    }
-
-    static long reconciledNextSequence(long authorityNextExpected, Long pendingSequence) {
-        if (authorityNextExpected <= 0L) throw new IllegalArgumentException("Expected sequence must be positive.");
-        if (pendingSequence == null) return authorityNextExpected;
-        if (pendingSequence <= 0L || pendingSequence == Long.MAX_VALUE) {
-            throw new IllegalArgumentException("Pending sequence is invalid.");
-        }
-        return Math.max(authorityNextExpected, pendingSequence + 1L);
     }
 
     private void rememberRetiredAuthority(String authorityInstanceId) {
@@ -1922,8 +1930,12 @@ public final class ChallengesManager {
         }
         cancel(intervalTask);
         cancel(stateSyncTask);
+        cancel(authoritySnapshotTask);
+        cancel(rankingReconcileTask);
         intervalTask = null;
         stateSyncTask = null;
+        authoritySnapshotTask = null;
+        rankingReconcileTask = null;
         trackingService.close();
         trackingService = ChallengeTrackingService.unavailable();
     }
@@ -1940,15 +1952,23 @@ public final class ChallengesManager {
         cancel(finalizationTask);
         cancel(earliestFinalizationTask);
         cancel(drainReminderTask);
-        cancel(progressFlushTask);
+        cancel(progressSnapshotTask);
+        cancel(progressSnapshotTicker);
         runTicker = null;
         finalizationTask = null;
         earliestFinalizationTask = null;
         drainReminderTask = null;
-        progressFlushTask = null;
+        progressSnapshotTask = null;
+        progressSnapshotTicker = null;
         IllegalStateException closed = new IllegalStateException("Challenge run was closed.");
-        failBufferedProgress(closed);
-        for (PendingBatch batch : new ArrayList<>(pendingBatches.values())) failBatch(batch, closed);
+        for (PendingProgress pending : pendingProgress) pending.completion().completeExceptionally(closed);
+        pendingProgress.clear();
+        localProgressContributions.clear();
+        progressStreams.clear();
+        progressStreamId = null;
+        localProgressRevision = 0L;
+        acknowledgedProgressRevision = 0L;
+        progressSyncFailed = false;
         activeRun = null;
         activeChallenge = null;
         effectiveEndsAt = 0L;
@@ -1959,7 +1979,6 @@ public final class ChallengesManager {
         lastCountdownValue = Long.MIN_VALUE;
         drainAcknowledgements.clear();
         expectedParticipants.clear();
-        batchDeduplicator.clear();
         pendingScoreDisplays.clear();
         pendingPlaceChanges.clear();
         ledger.clear();
@@ -1969,11 +1988,6 @@ public final class ChallengesManager {
         placeCache = Map.of();
         if (readModelWasVisible) markReadModelChanged();
         clearHudDisplays();
-    }
-
-    private void resetParticipantSequence() {
-        sequenceRunId = null;
-        nextBatchSequence = 1L;
     }
 
     private void closeTrackingImmediately() {
@@ -2001,6 +2015,11 @@ public final class ChallengesManager {
 
     private void publishDrainAck() {
         if (activeRun == null) return;
+        if (config.cluster.role == ChallengeRole.PARTICIPANT
+                && acknowledgedProgressRevision < localProgressRevision) {
+            publishProgressSnapshot();
+            return;
+        }
         requestState(activeRun.authorityInstanceId(), true);
     }
 
@@ -2046,33 +2065,7 @@ public final class ChallengesManager {
     private record PlaceChange(int previousPlace, int currentPlace) {
     }
 
-    private record PendingProgress(ChallengeProgressMutation mutation, CompletableFuture<Void> completion) {
-    }
-
-    private static final class PendingBatch {
-        private final ChallengeRun run;
-        private final ChallengeProgressBatchRequest request;
-        private final List<PendingProgress> entries;
-        private CompletableFuture<ChallengeProgressBatchResponse> inFlight;
-        private int attempt = 1;
-
-        private PendingBatch(ChallengeRun run, ChallengeProgressBatchRequest request,
-                             List<PendingProgress> entries) {
-            this.run = run;
-            this.request = request;
-            this.entries = List.copyOf(entries);
-        }
-
-        private ChallengeRun run() {
-            return run;
-        }
-
-        private ChallengeProgressBatchRequest request() {
-            return request;
-        }
-
-        private List<PendingProgress> entries() {
-            return entries;
-        }
+    private record PendingProgress(long revision, UUID playerId, String signedDelta, long observedAt,
+                                   CompletableFuture<Void> completion) {
     }
 }

@@ -38,6 +38,14 @@ public final class ChallengeScoreLedger {
     }
 
     public List<Result> applyBatch(List<Delta> deltas) {
+        return applyBatch(deltas, true);
+    }
+
+    List<Result> applyAdjustments(List<Delta> deltas) {
+        return applyBatch(deltas, false);
+    }
+
+    private List<Result> applyBatch(List<Delta> deltas, boolean boundedDelta) {
         if (deltas == null) throw new IllegalArgumentException("deltas must not be null.");
         if (deltas.isEmpty()) return List.of();
 
@@ -51,7 +59,12 @@ public final class ChallengeScoreLedger {
             if (delta == null || delta.playerId() == null) {
                 throw new IllegalArgumentException("Challenge score delta has no player.");
             }
-            BigDecimal signedDelta = ChallengeAmount.parseDelta(ChallengeAmount.canonical(delta.signedDelta()));
+            BigDecimal signedDelta = boundedDelta
+                    ? ChallengeAmount.parseDelta(ChallengeAmount.canonical(delta.signedDelta()))
+                    : delta.signedDelta().stripTrailingZeros();
+            if (signedDelta.signum() == 0) {
+                throw new IllegalArgumentException("Challenge adjustment must not be zero.");
+            }
             if (!rawBalances.containsKey(delta.playerId()) && newPlayers.add(delta.playerId())
                     && rawBalances.size() + newPlayers.size() > capacity) {
                 throw new CapacityExceededException();

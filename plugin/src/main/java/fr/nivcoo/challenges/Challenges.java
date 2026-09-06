@@ -19,8 +19,8 @@ import fr.nivcoo.challenges.hook.core.HookContext;
 import fr.nivcoo.challenges.hook.integration.EdenQuestsHook;
 import fr.nivcoo.challenges.hook.integration.PlaceholderApiHook;
 import fr.nivcoo.challenges.hook.integration.edenhud.EdenHudHook;
+import fr.nivcoo.challenges.messaging.action.ChallengeProgressSyncAction;
 import fr.nivcoo.challenges.messaging.action.ChallengeStateAction;
-import fr.nivcoo.challenges.messaging.rpc.ChallengeProgressBatchRequest;
 import fr.nivcoo.challenges.messaging.rpc.ChallengeStateRequest;
 import fr.nivcoo.challenges.placeholder.PlaceHolderAPI;
 import fr.nivcoo.challenges.service.ChallengeHudBridge;
@@ -95,7 +95,8 @@ public class Challenges extends JavaPlugin implements AChallenges {
             bus.start();
             challengesManager.enable();
             if (config.cluster.role == ChallengeRole.COORDINATOR) {
-                bus.publish(ChallengeStateAction.coordinatorOnline(bus.instanceId(), challengesManager.rankingRevision()));
+                bus.publish(ChallengeStateAction.coordinatorOnline(bus.instanceId(),
+                        challengesManager.rankingRevision(), challengesManager.rankingSnapshot()));
             }
             registerRoleListeners();
             registerCommands();
@@ -155,8 +156,8 @@ public class Challenges extends JavaPlugin implements AChallenges {
                 throw new IllegalStateException("Messaging resolved to NoopMessageBus.");
             }
             List<Class<?>> actions = config.cluster.role == ChallengeRole.COORDINATOR
-                    ? List.of(ChallengeStateRequest.class, ChallengeProgressBatchRequest.class)
-                    : List.of(ChallengeStateAction.class);
+                    ? List.of(ChallengeStateRequest.class, ChallengeProgressSyncAction.class)
+                    : List.of(ChallengeStateAction.class, ChallengeProgressSyncAction.class);
             for (Class<?> action : actions) {
                 bus.register(action);
             }
@@ -220,7 +221,8 @@ public class Challenges extends JavaPlugin implements AChallenges {
         registerHooks();
         challengesManager.enable();
         if (config.cluster.role == ChallengeRole.COORDINATOR) {
-            bus.publish(ChallengeStateAction.coordinatorOnline(bus.instanceId(), challengesManager.rankingRevision()));
+            bus.publish(ChallengeStateAction.coordinatorOnline(bus.instanceId(),
+                    challengesManager.rankingRevision(), challengesManager.rankingSnapshot()));
         }
         registerRoleListeners();
     }
