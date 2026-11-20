@@ -22,14 +22,16 @@ public final class Database {
         try {
             ranking.createTable();
         } catch (SQLException e) {
-            throw new IllegalStateException("Unable to initialize Challenges ranking tables.", e);
+            throw new IllegalStateException("Unable to initialize Challenges ranking table.", e);
         }
     }
 
-    public Map<UUID, Integer> addPlayerScores(Map<UUID, Integer> additions) throws SQLException {
-        if (additions == null || additions.isEmpty()) return Map.of();
+    public RankingScores addPlayerScores(Map<UUID, Integer> additions) throws SQLException {
+        if (additions == null || additions.isEmpty()) return new RankingScores(Map.of(), Map.of());
         return manager.transaction(connection -> {
             Map<UUID, Integer> updated = new HashMap<>();
+            Map<UUID, Long> reachedAt = new HashMap<>();
+            long timestamp = manager.currentTimeMillis(connection);
             for (Map.Entry<UUID, Integer> entry : additions.entrySet()) {
                 UUID playerId = entry.getKey();
                 int addition = entry.getValue() == null ? 0 : entry.getValue();
@@ -38,24 +40,36 @@ public final class Database {
                         .stream().findFirst().orElse(null);
                 int newScore = Math.addExact(existing == null ? 0 : existing.score(), addition);
                 if (existing == null) {
-                    ranking.insert(connection, new ChallengeRankingModel(playerId, newScore));
+                    ranking.insert(connection, new ChallengeRankingModel(playerId, newScore, timestamp));
                 } else {
-                    ranking.update(connection, Map.of("score", newScore), "uuid = ?", playerId);
+                    ranking.update(connection, Map.of("score", newScore, "reached_at", timestamp),
+                            "uuid = ?", playerId);
                 }
+                reachedAt.put(playerId, timestamp);
                 updated.put(playerId, newScore);
             }
-            return Map.copyOf(updated);
+            return new RankingScores(updated, reachedAt);
         });
     }
 
-    public Map<UUID, Integer> getAllPlayersScoreStrict() throws SQLException {
+    public RankingScores getAllPlayersScoreStrict() throws SQLException {
         Map<UUID, Integer> scores = new HashMap<>();
-        for (ChallengeRankingModel model : ranking.all()) scores.put(model.uuid(), model.score());
-        return scores;
+        Map<UUID, Long> reachedAt = new HashMap<>();
+        for (ChallengeRankingModel model : ranking.all()) {
+            scores.put(model.uuid(), model.score());
+            if (model.reachedAt() > 0L) reachedAt.put(model.uuid(), model.reachedAt());
+        }
+        return new RankingScores(scores, reachedAt);
     }
 
     public void clearDBStrict() throws SQLException {
         ranking.clear();
     }
 
+    public record RankingScores(Map<UUID, Integer> scores, Map<UUID, Long> reachedAt) {
+        public RankingScores {
+            scores = Map.copyOf(scores);
+            reachedAt = Map.copyOf(reachedAt);
+        }
+    }
 }

@@ -14,9 +14,9 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.Map.Entry;
-import java.util.stream.Collectors;
 
 public class PlaceHolderAPI extends PlaceholderExpansion {
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
@@ -46,10 +46,11 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     @Override
     public String onRequest(OfflinePlayer player, String identifier) {
         MainConfig config = challenges.cfg();
-        Player p = player.getPlayer();
+        Player p = player == null ? null : player.getPlayer();
 
         return switch (identifier) {
-            case "get_classement_score" -> String.valueOf(challenges.getCacheManager().getPlayerScore(player.getUniqueId()));
+            case "get_classement_score" -> player == null ? "0"
+                    : String.valueOf(challenges.getCacheManager().getPlayerScore(player.getUniqueId()));
             case "is_started" -> String.valueOf(challenges.getChallengesManager().isChallengeStarted());
             case "current_challenge_message" -> {
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
@@ -78,7 +79,9 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
                 if (p == null) yield legacy(config.messages.global.none);
 
                 int place = challenges.getChallengesManager().getPlaceOfPlayer(p);
-                if (place == 0) yield legacy(config.messages.global.none);
+                if (place == 0 || !challenges.getChallengesManager().isTopRewardEligible(p.getUniqueId())) {
+                    yield legacy(config.messages.global.none);
+                }
 
                 Challenge challenge = challenges.getChallengesManager().getSelectedChallenge();
                 if (challenge == null) yield legacy(config.messages.global.none);
@@ -108,6 +111,31 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     }
 
     private String handleTopRequest(String identifier) {
+        if (identifier.startsWith("top_rank_")) {
+            int row = parsePlace(identifier, "top_rank_");
+            return String.valueOf(challenges.getChallengesManager().getPlayerRankByRow(row));
+        }
+        if (identifier.startsWith("top_global_rank_")) {
+            int row = parsePlace(identifier, "top_global_rank_");
+            List<Entry<UUID, Integer>> entries = sortGlobalTop();
+            if (row < 1 || row > entries.size()) return "0";
+            int score = entries.get(row - 1).getValue();
+            int rank = row;
+            while (rank > 1 && entries.get(rank - 2).getValue() == score) rank--;
+            return String.valueOf(rank + ((row - rank) / 2) * 2);
+        }
+        if (identifier.startsWith("top_reward_eligible_")) {
+            int row = parsePlace(identifier, "top_reward_eligible_");
+            Entry<UUID, BigDecimal> entry = challenges.getChallengesManager().getPlayerProgressByPlace(row);
+            return String.valueOf(entry != null
+                    && challenges.getChallengesManager().isTopRewardEligible(entry.getKey()));
+        }
+        if (identifier.startsWith("top_reward_")) {
+            return challenges.getChallengesManager().getTopRewardMessageByRow(parsePlace(identifier, "top_reward_"));
+        }
+        if (identifier.startsWith("top_points_")) {
+            return String.valueOf(challenges.getChallengesManager().getTopPointsByRow(parsePlace(identifier, "top_points_")));
+        }
         if (identifier.startsWith("top_username_")) {
             int place = parsePlace(identifier, "top_username_");
             return challenges.getChallengesManager().getPlayerNameProgressByPlace(place);
@@ -156,10 +184,7 @@ public class PlaceHolderAPI extends PlaceholderExpansion {
     }
 
     private List<Entry<UUID, Integer>> sortGlobalTop() {
-        return challenges.getCacheManager().getSortedScores().entrySet().stream()
-                .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed()
-                        .thenComparing(entry -> entry.getKey().toString()))
-                .collect(Collectors.toList());
+        return challenges.getCacheManager().rankingEntries();
     }
 
     private String getRewardMessageForPlace(Challenge challenge, int place) {

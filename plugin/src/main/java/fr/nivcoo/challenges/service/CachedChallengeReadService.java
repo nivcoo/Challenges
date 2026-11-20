@@ -40,7 +40,7 @@ public final class CachedChallengeReadService implements ChallengeReadService {
             ChallengesManager.ActiveReadPage page = plugin.getChallengesManager()
                     .activeReadPage(safeOffset, pageSize, expectedStateRevision);
             ChallengeRunSnapshot run = convertRun(page);
-            List<ChallengeScoreSnapshot> scores = convertScores(page.scores(), safeOffset);
+            List<ChallengeScoreSnapshot> scores = convertScores(page.scores());
             int responseOffset = page.resyncRequired() ? 0 : safeOffset;
             int nextOffset = responseOffset + scores.size();
             return new ChallengeStatePage(
@@ -65,7 +65,7 @@ public final class CachedChallengeReadService implements ChallengeReadService {
         return onMain(() -> {
             ChallengesManager.LifetimeReadPage page = plugin.getChallengesManager()
                     .lifetimeReadPage(safeOffset, pageSize, expectedRankingRevision);
-            List<ChallengeScoreSnapshot> scores = convertScores(page.scores(), safeOffset);
+            List<ChallengeScoreSnapshot> scores = convertScores(page.scores());
             int responseOffset = page.resyncRequired() ? 0 : safeOffset;
             int nextOffset = responseOffset + scores.size();
             return new ChallengeLeaderboardPage(
@@ -139,12 +139,12 @@ public final class CachedChallengeReadService implements ChallengeReadService {
     }
 
     private static List<ChallengeScoreSnapshot> convertScores(
-            List<ChallengesManager.ReadScore> source, int offset) {
+            List<ChallengesManager.ReadScore> source) {
         List<ChallengeScoreSnapshot> scores = new ArrayList<>(source.size());
         for (int i = 0; i < source.size(); i++) {
             ChallengesManager.ReadScore score = source.get(i);
             scores.add(new ChallengeScoreSnapshot(
-                    offset + i + 1, score.playerUuid(), score.score()));
+                    score.place(), score.playerUuid(), score.score()));
         }
         return scores;
     }

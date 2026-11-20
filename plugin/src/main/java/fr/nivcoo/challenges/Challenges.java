@@ -307,7 +307,7 @@ public class Challenges extends JavaPlugin implements AChallenges {
         return storageExecutor.submit(operation);
     }
 
-    public CompletableFuture<Map<UUID, Integer>> loadRankingAsync() {
+    public CompletableFuture<Database.RankingScores> loadRankingAsync() {
         return submitStorage(database::getAllPlayersScoreStrict);
     }
 

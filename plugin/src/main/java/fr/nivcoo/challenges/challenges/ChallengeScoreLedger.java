@@ -3,6 +3,7 @@ package fr.nivcoo.challenges.challenges;
 import fr.nivcoo.challenges.messaging.model.ChallengeScoreEntry;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -19,6 +20,7 @@ public final class ChallengeScoreLedger {
 
     private final Map<UUID, BigDecimal> rawBalances = new LinkedHashMap<>();
     private final Map<UUID, Long> playerRevisions = new HashMap<>();
+    private final Map<UUID, Long> reachedOrders = new HashMap<>();
     private final int capacity;
     private long stateRevision;
 
@@ -51,6 +53,7 @@ public final class ChallengeScoreLedger {
 
         Map<UUID, BigDecimal> stagedBalances = new LinkedHashMap<>();
         Map<UUID, Long> stagedPlayerRevisions = new HashMap<>();
+        Map<UUID, Long> stagedReachedOrders = new HashMap<>();
         Set<UUID> newPlayers = new HashSet<>();
         List<Result> results = new ArrayList<>(deltas.size());
         long nextStateRevision = stateRevision;
@@ -81,14 +84,21 @@ public final class ChallengeScoreLedger {
                     : playerRevisions.getOrDefault(delta.playerId(), 0L);
             long playerRevision = Math.addExact(previousPlayerRevision, 1L);
             nextStateRevision = Math.addExact(nextStateRevision, 1L);
+            long reachedOrder = stagedReachedOrders.getOrDefault(delta.playerId(),
+                    reachedOrders.getOrDefault(delta.playerId(), 0L));
+            if (ChallengeAmount.visible(previousBalance).compareTo(ChallengeAmount.visible(rawBalance)) != 0) {
+                reachedOrder = nextStateRevision;
+            }
+            stagedReachedOrders.put(delta.playerId(), reachedOrder);
             stagedBalances.put(delta.playerId(), rawBalance);
             stagedPlayerRevisions.put(delta.playerId(), playerRevision);
             results.add(new Result(delta.playerId(), rawBalance, ChallengeAmount.visible(rawBalance),
-                    playerRevision, nextStateRevision));
+                    playerRevision, nextStateRevision, reachedOrder));
         }
 
         rawBalances.putAll(stagedBalances);
         playerRevisions.putAll(stagedPlayerRevisions);
+        reachedOrders.putAll(stagedReachedOrders);
         stateRevision = nextStateRevision;
         return List.copyOf(results);
     }
@@ -106,6 +116,7 @@ public final class ChallengeScoreLedger {
         if (entry.playerRevision() <= currentRevision) return false;
         rawBalances.put(entry.playerId(), rawBalance);
         playerRevisions.put(entry.playerId(), entry.playerRevision());
+        reachedOrders.put(entry.playerId(), entry.reachedOrder());
         stateRevision = Math.max(stateRevision, incomingStateRevision);
         return true;
     }
@@ -114,6 +125,7 @@ public final class ChallengeScoreLedger {
         if (revision < 0L || entries != null && entries.size() > capacity) return false;
         Map<UUID, BigDecimal> restoredRawBalances = new LinkedHashMap<>();
         Map<UUID, Long> restoredRevisions = new HashMap<>();
+        Map<UUID, Long> restoredReachedOrders = new HashMap<>();
         if (entries != null) {
             for (ChallengeScoreEntry entry : entries) {
                 if (entry == null || entry.playerRevision() < 0L) return false;
@@ -125,13 +137,16 @@ public final class ChallengeScoreLedger {
                 }
                 if (restoredRawBalances.putIfAbsent(entry.playerId(), balance) != null) return false;
                 restoredRevisions.put(entry.playerId(), entry.playerRevision());
+                restoredReachedOrders.put(entry.playerId(), entry.reachedOrder());
             }
         }
 
         rawBalances.clear();
         playerRevisions.clear();
+        reachedOrders.clear();
         rawBalances.putAll(restoredRawBalances);
         playerRevisions.putAll(restoredRevisions);
+        reachedOrders.putAll(restoredReachedOrders);
         stateRevision = revision;
         return true;
     }
@@ -139,6 +154,7 @@ public final class ChallengeScoreLedger {
     public void clear() {
         rawBalances.clear();
         playerRevisions.clear();
+        reachedOrders.clear();
         stateRevision = 0L;
     }
 
@@ -172,7 +188,9 @@ public final class ChallengeScoreLedger {
         return scores().entrySet().stream()
                 .filter(entry -> entry.getValue().signum() > 0)
                 .sorted(Map.Entry.<UUID, BigDecimal>comparingByValue(Comparator.reverseOrder())
-                        .thenComparing(entry -> entry.getKey().toString()))
+                        .thenComparingLong(entry -> reachedOrders.getOrDefault(entry.getKey(), 0L))
+                        .thenComparing(entry -> UUID.nameUUIDFromBytes((ChallengeAmount.canonical(entry.getValue())
+                                + ":" + entry.getKey()).getBytes(StandardCharsets.UTF_8))))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
                         (left, right) -> left, LinkedHashMap::new));
     }
@@ -184,7 +202,8 @@ public final class ChallengeScoreLedger {
     public List<ChallengeScoreEntry> entries() {
         List<ChallengeScoreEntry> entries = new ArrayList<>();
         rawBalances.forEach((playerId, rawBalance) -> entries.add(new ChallengeScoreEntry(
-                playerId, ChallengeAmount.canonical(rawBalance), playerRevisions.getOrDefault(playerId, 0L))));
+                playerId, ChallengeAmount.canonical(rawBalance), playerRevisions.getOrDefault(playerId, 0L),
+                reachedOrders.getOrDefault(playerId, 0L))));
         entries.sort(Comparator.comparing(entry -> entry.playerId().toString()));
         return List.copyOf(entries);
     }
@@ -194,7 +213,7 @@ public final class ChallengeScoreLedger {
     }
 
     public record Result(UUID playerId, BigDecimal rawBalance, BigDecimal score,
-                         long playerRevision, long stateRevision) {
+                         long playerRevision, long stateRevision, long reachedOrder) {
     }
 
     public record Delta(UUID playerId, BigDecimal signedDelta) {

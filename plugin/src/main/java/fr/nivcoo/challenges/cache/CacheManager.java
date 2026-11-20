@@ -7,6 +7,7 @@ import fr.nivcoo.edenplayers.api.EdenPlayersAPI;
 import fr.nivcoo.edenplayers.api.model.PlayerProfile;
 import org.bukkit.Bukkit;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -15,6 +16,7 @@ public class CacheManager {
 
     private final Database db;
     private LinkedHashMap<UUID, Integer> playersRankingCache;
+    private final Map<UUID, Long> rankingReachedAt = new HashMap<>();
     private volatile List<Map.Entry<UUID, Integer>> rankingEntries = List.of();
 
     public CacheManager() throws SQLException {
@@ -25,31 +27,41 @@ public class CacheManager {
     }
 
     private void loadAllScores() throws SQLException {
-        Map<UUID, Integer> loaded = db.getAllPlayersScoreStrict();
-        playersRankingCache.clear();
-        playersRankingCache.putAll(sortByValueDescending(loaded));
-        refreshRankingEntries();
+        replaceRanking(db.getAllPlayersScoreStrict());
     }
 
     public int getPlayerScore(UUID uuid) {
         return playersRankingCache.getOrDefault(uuid, 0);
     }
 
-    public void applyRankingUpdates(Map<UUID, Integer> scores) {
-        if (scores == null || scores.isEmpty()) return;
-        playersRankingCache.putAll(scores);
+    public void applyRankingUpdates(Database.RankingScores ranking) {
+        if (ranking == null || ranking.scores().isEmpty()) return;
+        playersRankingCache.putAll(ranking.scores());
+        ranking.scores().keySet().forEach(uuid -> rankingReachedAt.put(uuid, ranking.reachedAt().getOrDefault(uuid, 0L)));
         sortRanking();
     }
 
     public void clearRanking() {
         playersRankingCache.clear();
         rankingEntries = List.of();
+        rankingReachedAt.clear();
     }
 
-    public void replaceRanking(Map<UUID, Integer> scores) {
+    public void replaceRanking(Database.RankingScores ranking) {
+        rankingReachedAt.clear();
+        rankingReachedAt.putAll(ranking.reachedAt());
         playersRankingCache.clear();
-        playersRankingCache.putAll(sortByValueDescending(scores));
+        playersRankingCache.putAll(sortByValueDescending(ranking.scores()));
         refreshRankingEntries();
+    }
+
+    public long getRankingReachedAt(UUID playerUuid) {
+        return rankingReachedAt.getOrDefault(playerUuid, 0L);
+    }
+
+    public boolean matchesRanking(Database.RankingScores ranking) {
+        return ranking != null && playersRankingCache.equals(ranking.scores())
+                && rankingReachedAt.equals(ranking.reachedAt());
     }
 
     public Map<UUID, Integer> getSortedScores() {
@@ -74,7 +86,9 @@ public class CacheManager {
     private LinkedHashMap<UUID, Integer> sortByValueDescending(Map<UUID, Integer> input) {
         return input.entrySet().stream()
                 .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed()
-                        .thenComparing(entry -> entry.getKey().toString()))
+                        .thenComparingLong(entry -> rankingReachedAt.getOrDefault(entry.getKey(), 0L))
+                        .thenComparing(entry -> UUID.nameUUIDFromBytes((entry.getValue() + ":" + entry.getKey())
+                                .getBytes(StandardCharsets.UTF_8))))
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,

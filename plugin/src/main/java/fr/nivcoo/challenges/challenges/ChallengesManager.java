@@ -3,6 +3,7 @@ package fr.nivcoo.challenges.challenges;
 import fr.nivcoo.challenges.Challenges;
 import fr.nivcoo.challenges.catalog.ChallengeCatalog;
 import fr.nivcoo.challenges.config.MainConfig;
+import fr.nivcoo.challenges.storage.Database;
 import fr.nivcoo.challenges.messaging.action.ChallengeProgressSyncAction;
 import fr.nivcoo.challenges.messaging.action.ChallengeStateAction;
 import fr.nivcoo.challenges.messaging.model.ChallengeProgressContribution;
@@ -33,7 +34,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 
 public final class ChallengesManager {
 
-    public record ReadScore(UUID playerUuid, BigDecimal score) {
+    public record ReadScore(int place, UUID playerUuid, BigDecimal score) {
     }
 
     public record ActiveReadPage(ChallengeRun run, ChallengeRunPhase phase,
@@ -254,7 +254,7 @@ public final class ChallengesManager {
         List<ReadScore> page = new ArrayList<>(to - from);
         for (int i = from; i < to; i++) {
             Map.Entry<UUID, BigDecimal> entry = entries.get(i);
-            page.add(new ReadScore(entry.getKey(), entry.getValue()));
+            page.add(new ReadScore(placeCache.getOrDefault(entry.getKey(), 0), entry.getKey(), entry.getValue()));
         }
         return new ActiveReadPage(activeRun, activeRun == null ? ChallengeRunPhase.IDLE : runPhase,
                 effectiveEndsAt, activeChallenge == null ? "" : activeChallenge.message(),
@@ -271,9 +271,14 @@ public final class ChallengesManager {
         int from = Math.max(0, Math.min(offset, entries.size()));
         int to = Math.min(entries.size(), from + Math.max(1, limit));
         List<ReadScore> page = new ArrayList<>(to - from);
-        for (int i = from; i < to; i++) {
+        int scoreStart = 0;
+        int previousScore = 0;
+        for (int i = 0; i < to; i++) {
             Map.Entry<UUID, Integer> entry = entries.get(i);
-            page.add(new ReadScore(entry.getKey(), BigDecimal.valueOf(entry.getValue())));
+            if (i == 0 || entry.getValue() != previousScore) scoreStart = i;
+            int place = scoreStart + ((i - scoreStart) / 2) * 2 + 1;
+            if (i >= from) page.add(new ReadScore(place, entry.getKey(), BigDecimal.valueOf(entry.getValue())));
+            previousScore = entry.getValue();
         }
         return new LifetimeReadPage(rankingRevision, entries.size(), false, page);
     }
@@ -290,7 +295,8 @@ public final class ChallengesManager {
     public List<ChallengeRankingEntry> rankingSnapshot() {
         ensureMainThread();
         return plugin.getCacheManager().rankingEntries().stream()
-                .map(entry -> new ChallengeRankingEntry(entry.getKey(), entry.getValue()))
+                .map(entry -> new ChallengeRankingEntry(entry.getKey(), entry.getValue(),
+                        plugin.getCacheManager().getRankingReachedAt(entry.getKey())))
                 .toList();
     }
 
@@ -381,17 +387,20 @@ public final class ChallengesManager {
     private void applyRankingSnapshot(List<ChallengeRankingEntry> entries, long incomingRevision) {
         if (entries == null || incomingRevision < 0L || incomingRevision < authorityRankingRevision) return;
         Map<UUID, Integer> scores = new HashMap<>();
+        Map<UUID, Long> reachedAt = new HashMap<>();
         for (ChallengeRankingEntry entry : entries) {
             if (entry == null || entry.playerId() == null || entry.score() < 0
                     || scores.putIfAbsent(entry.playerId(), entry.score()) != null) return;
+            if (entry.reachedAt() > 0L) reachedAt.put(entry.playerId(), entry.reachedAt());
         }
-        boolean changed = !plugin.getCacheManager().getSortedScores().equals(scores);
+        Database.RankingScores ranking = new Database.RankingScores(scores, reachedAt);
+        boolean changed = !plugin.getCacheManager().matchesRanking(ranking);
         if (incomingRevision == authorityRankingRevision && !changed) return;
         rankingRefreshEpoch++;
         rankingRefreshInFlight = false;
         authorityRankingRevision = incomingRevision;
         if (!changed) return;
-        plugin.getCacheManager().replaceRanking(scores);
+        plugin.getCacheManager().replaceRanking(ranking);
         bumpLocalRankingRevision(incomingRevision);
         markReadModelChanged();
     }
@@ -416,7 +425,7 @@ public final class ChallengesManager {
                 plugin.getLogger().warning("Unable to resynchronize challenge ranking: " + error.getMessage());
                 return;
             }
-            if (scores == null || plugin.getCacheManager().getSortedScores().equals(scores)) return;
+            if (scores == null || plugin.getCacheManager().matchesRanking(scores)) return;
             plugin.getCacheManager().replaceRanking(scores);
             bumpLocalRankingRevision(-1L);
             markReadModelChanged();
@@ -1050,7 +1059,7 @@ public final class ChallengesManager {
         if (!applied.isEmpty()) {
             List<ChallengeScoreEntry> updates = applied.stream()
                     .map(result -> new ChallengeScoreEntry(result.playerId(),
-                            ChallengeAmount.canonical(result.rawBalance()), result.playerRevision()))
+                            ChallengeAmount.canonical(result.rawBalance()), result.playerRevision(), result.reachedOrder()))
                     .toList();
             requestScoreReadModelRefresh();
             plugin.getBus().publish(ChallengeStateAction.score(run, updates,
@@ -1631,6 +1640,38 @@ public final class ChallengesManager {
         return player == null ? 0 : getPlaceOfUUID(player.getUniqueId());
     }
 
+    public boolean isTopRewardEligible(UUID playerUuid) {
+        refreshSortedScoresCache();
+        int row = 0;
+        for (UUID entry : sortedScoresCache.keySet()) {
+            if (++row > topDisplayLimit()) return false;
+            if (entry.equals(playerUuid)) return true;
+        }
+        return false;
+    }
+
+    public String getTopRewardMessageByRow(int row) {
+        Challenge challenge = getSelectedChallenge();
+        int place = getPlayerRankByRow(row);
+        if (challenge == null || place <= 0 || row > topDisplayLimit()) return legacy(config.messages.global.none);
+        return challenge.topRewards().stream().filter(reward -> reward.place() == place)
+                .map(TopReward::message).findFirst().orElse(legacy(config.messages.global.none));
+    }
+
+    public int getTopPointsByRow(int row) {
+        Challenge challenge = getSelectedChallenge();
+        int place = getPlayerRankByRow(row);
+        if (challenge == null || place <= 0 || row > topDisplayLimit()
+                || challenge.topRewards().stream().noneMatch(reward -> reward.place() == place)) return 0;
+        return challenge.addAllTopIntoDb() ? Math.max(0, challenge.topRewards().size() - place + 1)
+                : (place == 1 ? 1 : 0);
+    }
+
+    public int getPlayerRankByRow(int row) {
+        Map.Entry<UUID, BigDecimal> entry = getPlayerProgressByPlace(row);
+        return entry == null ? 0 : getPlaceOfUUID(entry.getKey());
+    }
+
     public Map.Entry<UUID, BigDecimal> getPlayerProgressByPlace(int place) {
         refreshSortedScoresCache();
         int current = 0;
@@ -1652,8 +1693,9 @@ public final class ChallengesManager {
                 .map(entry -> Map.entry(entry.getKey(), entry.getValue()))
                 .toList();
         Map<UUID, Integer> places = new HashMap<>();
-        int place = 0;
-        for (UUID playerId : sortedScoresCache.keySet()) places.put(playerId, ++place);
+        for (ChallengeRanking.Entry entry : ChallengeRanking.entries(sortedScoresCache)) {
+            places.put(entry.playerUuid(), entry.place());
+        }
         placeCache = Map.copyOf(places);
         if (force) pendingPlaceChanges.clear();
         else queuePlaceChanges(previousPlaces, placeCache);
@@ -1784,7 +1826,7 @@ public final class ChallengesManager {
             try {
                 int place = getPlaceOfUUID(player.getUniqueId());
                 if (place <= 0) continue;
-                TopReward reward = rewards.get(place);
+                TopReward reward = isTopRewardEligible(player.getUniqueId()) ? rewards.get(place) : null;
                 if (reward == null || challenge.giveForAllRewardToTop()) {
                     player.sendMessage(ConfigManager.fmt(config.messages.rewards.forAll,
                             Map.of("0", challenge.forAllMessage())));
@@ -1800,12 +1842,6 @@ public final class ChallengesManager {
         }
     }
 
-    private <T> List<T> topN(Collection<T> source, int count) {
-        if (count <= 0) return List.of();
-        List<T> list = new ArrayList<>(source);
-        return list.subList(0, Math.min(count, list.size()));
-    }
-
     private int topDisplayLimit() {
         Challenge challenge = getSelectedChallenge();
         if (challenge == null) return 0;
@@ -1818,14 +1854,15 @@ public final class ChallengesManager {
         Map<Integer, TopReward> rewards = challenge.topRewards().stream()
                 .collect(Collectors.toMap(TopReward::place, reward -> reward));
         StringBuilder globalTop = new StringBuilder();
-        int place = 0;
-        for (Map.Entry<UUID, BigDecimal> entry : topN(sorted.entrySet(), topDisplayLimit())) {
-            place++;
+        List<ChallengeRanking.Entry> entries = ChallengeRanking.top(
+                ChallengeRanking.entries(sorted), topDisplayLimit());
+        for (ChallengeRanking.Entry entry : entries) {
+            int place = entry.place();
             String line = format(config.messages.chat.top.template,
                     String.valueOf(place),
-                    plugin.getCacheManager().resolvePlayerName(entry.getKey()),
-                    ChallengeAmount.canonical(entry.getValue()));
-            TopReward reward = rewards.get(place);
+                    plugin.getCacheManager().resolvePlayerName(entry.playerUuid()),
+                    ChallengeAmount.canonical(entry.score()));
+            TopReward reward = entry.row() <= topDisplayLimit() ? rewards.get(place) : null;
             if (reward != null) {
                 line = line.replace("{4}", reward.message());
                 int addNumber = challenge.addAllTopIntoDb()
@@ -1844,8 +1881,8 @@ public final class ChallengesManager {
                 line = line.replace("{3}", legacy(config.messages.chat.top.templatePoints.defaultValue));
                 line = line.replace("{4}", "");
             }
+            if (!globalTop.isEmpty()) globalTop.append("§r \n");
             globalTop.append(line);
-            if (place < sorted.size()) globalTop.append("§r \n");
         }
 
         StringBuilder result = new StringBuilder();
@@ -1863,11 +1900,10 @@ public final class ChallengesManager {
         Map<Integer, TopReward> rewards = challenge.topRewards().stream()
                 .collect(Collectors.toMap(TopReward::place, reward -> reward));
         Map<UUID, Integer> rankingPoints = new LinkedHashMap<>();
-        int place = 0;
-        for (Map.Entry<UUID, BigDecimal> entry : sorted.entrySet()) {
-            place++;
-            UUID playerId = entry.getKey();
-            TopReward reward = rewards.get(place);
+        for (ChallengeRanking.Entry entry : ChallengeRanking.entries(sorted)) {
+            int place = entry.place();
+            UUID playerId = entry.playerUuid();
+            TopReward reward = entry.row() <= topDisplayLimit() ? rewards.get(place) : null;
             boolean top = reward != null;
 
             if (!top || challenge.giveForAllRewardToTop()) {
